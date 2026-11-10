@@ -1,0 +1,139 @@
+{
+  "entities": {
+    "userProfile": {
+      "title": "User Profile",
+      "description": "Student user profile and campus affiliation",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "avatar": { "type": "string" },
+        "college": { "type": "string" },
+        "school": { "type": "string" },
+        "country": { "type": "string" },
+        "state": { "type": "string" },
+        "currencyCode": { "type": "string" },
+        "currencySymbol": { "type": "string" },
+        "major": { "type": "string" },
+        "graduationYear": { "type": "string" },
+        "karma": { "type": "number" },
+        "badges": { "type": "array" },
+        "verifiedStudent": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "email", "displayName"]
+    },
+    "question": {
+      "title": "Academic Question",
+      "description": "Course question posted by a student",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "body": { "type": "string" },
+        "courseCode": { "type": "string" },
+        "category": { "type": "string" },
+        "tags": { "type": "array" },
+        "urgency": { "type": "string" },
+        "campus": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "upvotes": { "type": "number" },
+        "downvotes": { "type": "number" },
+        "views": { "type": "number" },
+        "answersCount": { "type": "number" },
+        "acceptedAnswerId": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "body", "courseCode", "authorId"]
+    },
+    "answer": {
+      "title": "Question Answer",
+      "description": "Peer answer submitted to an academic question",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "questionId": { "type": "string" },
+        "body": { "type": "string" },
+        "authorId": { "type": "string" },
+        "authorName": { "type": "string" },
+        "authorAvatar": { "type": "string" },
+        "isAccepted": { "type": "boolean" },
+        "isTAOrTutor": { "type": "boolean" },
+        "upvotes": { "type": "number" },
+        "downvotes": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "questionId", "body", "authorId"]
+    },
+    "marketplaceItem": {
+      "title": "Marketplace Item",
+      "description": "Used school materials, textbooks, or tech for campus sale",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "category": { "type": "string" },
+        "courseCode": { "type": "string" },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "condition": { "type": "string" },
+        "images": { "type": "array" },
+        "sellerId": { "type": "string" },
+        "sellerName": { "type": "string" },
+        "sellerAvatar": { "type": "string" },
+        "campus": { "type": "string" },
+        "meetupLocation": { "type": "string" },
+        "isNegotiable": { "type": "boolean" },
+        "status": { "type": "string" },
+        "savesCount": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["id", "title", "price", "condition", "sellerId"]
+    },
+    "conversation": {
+      "title": "Chat Conversation",
+      "description": "In-app messaging thread between buyer and seller",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "itemId": { "type": "string" },
+        "itemTitle": { "type": "string" },
+        "itemPrice": { "type": "number" },
+        "itemImage": { "type": "string" },
+        "buyerId": { "type": "string" },
+        "sellerId": { "type": "string" },
+        "lastMessage": { "type": "string" },
+        "lastMessageTime": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["id", "itemId", "buyerId", "sellerId"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/userProfile" },
+      "description": "User profile document keyed by Firebase Auth UID"
+    },
+    "/questions/{questionId}": {
+      "schema": { "$ref": "#/entities/question" },
+      "description": "Academic course questions"
+    },
+    "/questions/{questionId}/answers/{answerId}": {
+      "schema": { "$ref": "#/entities/answer" },
+      "description": "Answers submitted to a question"
+    },
+    "/marketplace/{itemId}": {
+      "schema": { "$ref": "#/entities/marketplaceItem" },
+      "description": "Used school materials, textbooks, and gear"
+    },
+    "/conversations/{conversationId}": {
+      "schema": { "$ref": "#/entities/conversation" },
+      "description": "Direct student negotiations and inquiries"
+    }
+  }
+}
