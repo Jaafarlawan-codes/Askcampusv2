@@ -130,66 +130,67 @@ export const AICopilotView: React.FC<AICopilotViewProps> = ({
     }, 800);
   };
 
+  const currencySymbol = currentUser.currencySymbol || '$';
+
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
       {/* Header Banner */}
-      <div className="rounded-3xl bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-6 sm:p-8 shadow-xl relative overflow-hidden mb-8 border border-slate-800">
-        <div className="relative z-10 max-w-2xl">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-500/20 text-indigo-300 text-xs font-bold border border-indigo-500/30 mb-3">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-300" />
-            <span>AskCampus AI Copilot</span>
-          </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Your 24/7 Academic & Campus Marketplace Assistant
+      <div className="rounded-2xl bg-white border border-slate-200/90 p-5 sm:p-6 shadow-2xs mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <p className="text-xs font-semibold text-blue-600 mb-1">
+            AI Study & Marketplace Assistant
+          </p>
+          <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+            Academic & Resale Copilot
           </h1>
-          <p className="text-sm text-slate-300 mt-2 leading-relaxed">
-            Get instant conceptual explanations for tough homework, appraisal values for your old textbooks and electronics, and practice quiz questions.
+          <p className="text-xs sm:text-sm text-slate-500 mt-1 max-w-2xl leading-relaxed">
+            Get step-by-step explanations for tough coursework, price appraisals in {currentUser.currencyCode || 'local currency'}, and practice cram questions.
           </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap gap-2 mb-6 border-b border-slate-200 pb-3">
+      {/* Segmented Tabs */}
+      <div className="inline-flex flex-wrap gap-1.5 p-1 bg-slate-200/70 rounded-xl mb-6">
         <button
           onClick={() => setActiveTab('study')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'study'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Lightbulb className="w-4 h-4 text-amber-300" />
-          <span>Concept Explainer & Proofs</span>
+          <Lightbulb className="w-4 h-4 text-amber-500" />
+          <span>Concept Explainer</span>
         </button>
 
         <button
           onClick={() => setActiveTab('price')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'price'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <DollarSign className="w-4 h-4 text-emerald-400" />
-          <span>Marketplace Price Appraiser</span>
+          <DollarSign className="w-4 h-4 text-emerald-600" />
+          <span>Price Appraiser</span>
         </button>
 
         <button
           onClick={() => setActiveTab('quiz')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all cursor-pointer ${
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs sm:text-sm font-bold transition-all cursor-pointer whitespace-nowrap ${
             activeTab === 'quiz'
-              ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/20'
-              : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
+              ? 'bg-white text-slate-900 shadow-xs'
+              : 'text-slate-600 hover:text-slate-900'
           }`}
         >
-          <Zap className="w-4 h-4 text-purple-400" />
-          <span>Practice Midterm Crammer</span>
+          <Zap className="w-4 h-4 text-blue-600" />
+          <span>Practice Quiz</span>
         </button>
       </div>
 
       {/* Tab 1: Study Explainer */}
       {activeTab === 'study' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs">
           <form onSubmit={handleStudySubmit} className="space-y-4">
             <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
               <div className="sm:col-span-1">
@@ -301,7 +302,7 @@ export const AICopilotView: React.FC<AICopilotViewProps> = ({
               <button
                 type="submit"
                 disabled={priceLoading || !itemTitle.trim()}
-                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white text-sm font-bold shadow-md shadow-amber-500/20 transition-all cursor-pointer disabled:opacity-50"
+                className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
               >
                 {priceLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <DollarSign className="w-4 h-4" />}
                 <span>Calculate Campus Market Value</span>
@@ -311,27 +312,27 @@ export const AICopilotView: React.FC<AICopilotViewProps> = ({
 
           {/* Price Result Card */}
           {priceResult && (
-            <div className="mt-6 p-6 rounded-2xl bg-gradient-to-br from-amber-50/70 via-white to-indigo-50/50 border border-amber-200 animate-in fade-in">
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wider">
+            <div className="mt-6 p-5 rounded-2xl bg-slate-50 border border-slate-200 animate-in fade-in">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
                   Campus Resale Valuation
                 </span>
-                <span className="text-xs font-bold px-2.5 py-1 bg-amber-100 text-amber-800 rounded-lg">
+                <span className="text-xs font-bold px-2.5 py-0.5 bg-amber-100 text-amber-800 rounded-md">
                   {itemCondition}
                 </span>
               </div>
 
               <div className="flex items-baseline gap-3 mb-4">
-                <span className="text-3xl font-black text-slate-900">
-                  {formatPrice(priceResult.suggestedPrice || 40)}
+                <span className="text-3xl font-extrabold text-slate-900 tabular-nums">
+                  {formatPrice(priceResult.suggestedPrice || 40, currencySymbol)}
                 </span>
-                <span className="text-xs text-slate-500">
-                  Recommended range: {formatPrice(priceResult.minPrice || 30)} - {formatPrice(priceResult.maxPrice || 50)}
+                <span className="text-xs text-slate-500 tabular-nums">
+                  Recommended range: {formatPrice(priceResult.minPrice || 30, currencySymbol)} - {formatPrice(priceResult.maxPrice || 50, currencySymbol)}
                 </span>
               </div>
 
               {priceResult.quickPitch && (
-                <div className="p-3 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 mb-3">
+                <div className="p-3.5 bg-white rounded-xl border border-slate-200 text-xs text-slate-700 mb-3 leading-relaxed">
                   <span className="font-bold text-slate-900 block mb-1">Generated Buyer Pitch:</span>
                   {priceResult.quickPitch}
                 </div>
@@ -350,7 +351,7 @@ export const AICopilotView: React.FC<AICopilotViewProps> = ({
 
       {/* Tab 3: Practice Midterm Crammer */}
       {activeTab === 'quiz' && (
-        <div className="bg-white rounded-3xl border border-slate-200 p-6 shadow-sm">
+        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-2xs">
           <form onSubmit={handleQuizSubmit} className="space-y-4">
             <div>
               <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1.5">

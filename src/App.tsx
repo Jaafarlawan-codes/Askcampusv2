@@ -70,7 +70,7 @@ import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { UserProfileView } from './components/UserProfileView';
 import { OnboardingModal } from './components/OnboardingModal';
 import { SUPPORTED_COUNTRIES } from './data/campusLocations';
-import { triggerConfetti } from './utils/helpers';
+import { triggerConfetti, formatPrice } from './utils/helpers';
 import { auth, syncUserProfile, getRegisteredUsers, updateUserFirestoreProfile, logOut } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
@@ -938,88 +938,63 @@ export default function App() {
             TAB 1: CAMPUS Q&A
         ============================================================ */}
         {currentTab === 'questions' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
             {/* Clean Modern Campus Q&A Feed Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
               <div>
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    {currentUser.school || selectedCampus} • Discussions & Answers
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs font-semibold text-blue-600 mb-1">
+                  {currentUser.school || selectedCampus} · Academic Community
+                </p>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   Student Questions & Discussions
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-                  Ask questions, get AI explanations, and learn with classmates on your campus
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Ask course questions, get peer insights, and collaborate with classmates
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
-                <button
-                  onClick={handleOpenAskModal}
-                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer"
-                >
-                  <Plus className="w-4 h-4" />
-                  <span>Ask Question</span>
-                </button>
-              </div>
-            </div>
-
-            {/* School Colleague vs All Campuses Filter Bar */}
-            <div className="flex items-center gap-2 mb-4">
               <button
-                onClick={() => setFilterMySchoolOnly(true)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterMySchoolOnly
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
+                onClick={handleOpenAskModal}
+                className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer shrink-0 self-start sm:self-auto whitespace-nowrap"
               >
-                <span>🎓 Colleagues at {currentUser.school || 'My School'}</span>
-              </button>
-
-              <button
-                onClick={() => setFilterMySchoolOnly(false)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  !filterMySchoolOnly
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>🌐 All Campuses</span>
+                <Plus className="w-4 h-4 stroke-[2.5]" />
+                <span>Ask Question</span>
               </button>
             </div>
 
-            {/* Filters & Subject Chips */}
-            <div className="space-y-4 mb-6">
-              {/* Category Pills */}
-              <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-none">
-                {CATEGORIES.map((cat) => (
+            {/* Unified Segmented Controls & Subject Filter */}
+            <div className="space-y-3 mb-6">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                {/* School Colleague vs All Campuses Segmented Switch */}
+                <div className="inline-flex items-center p-1 bg-slate-200/75 rounded-xl">
                   <button
-                    key={cat}
-                    onClick={() => setQuestionCategory(cat)}
-                    className={`text-xs font-bold whitespace-nowrap px-3.5 py-2 rounded-xl transition-all cursor-pointer shrink-0 ${
-                      questionCategory === cat
-                        ? 'bg-slate-900 text-white shadow-sm'
-                        : 'bg-white text-slate-600 hover:bg-slate-200/80 border border-slate-200'
+                    onClick={() => setFilterMySchoolOnly(true)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      filterMySchoolOnly
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    {cat}
+                    🎓 {currentUser.school || 'My School'}
                   </button>
-                ))}
-              </div>
+                  <button
+                    onClick={() => setFilterMySchoolOnly(false)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                      !filterMySchoolOnly
+                        ? 'bg-white text-slate-900 shadow-2xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    🌐 All Campuses
+                  </button>
+                </div>
 
-              {/* Sorting Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-white p-3 rounded-2xl border border-slate-200">
-                <div className="flex items-center gap-1 sm:gap-2">
-                  <span className="text-xs font-bold text-slate-400 uppercase tracking-wider mr-1 hidden sm:inline">
-                    Sort By:
-                  </span>
+                {/* Sorting Controls */}
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 sm:pb-0">
                   <button
                     onClick={() => setQuestionSort('trending')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                      questionSort === 'trending' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                      questionSort === 'trending' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-200/60'
                     }`}
                   >
                     <TrendingUp className="w-3.5 h-3.5" />
@@ -1027,8 +1002,8 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => setQuestionSort('latest')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                      questionSort === 'latest' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                      questionSort === 'latest' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-200/60'
                     }`}
                   >
                     <Clock className="w-3.5 h-3.5" />
@@ -1036,41 +1011,54 @@ export default function App() {
                   </button>
                   <button
                     onClick={() => setQuestionSort('unanswered')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                      questionSort === 'unanswered' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                      questionSort === 'unanswered' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-200/60'
                     }`}
                   >
                     <Award className="w-3.5 h-3.5 text-amber-500" />
-                    <span>Needs Answer (+Karma)</span>
+                    <span>Needs Answer</span>
                   </button>
                   <button
                     onClick={() => setQuestionSort('urgent')}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 ${
-                      questionSort === 'urgent' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-100'
+                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap ${
+                      questionSort === 'urgent' ? 'bg-blue-50 text-blue-700' : 'text-slate-600 hover:bg-slate-200/60'
                     }`}
                   >
                     <Zap className="w-3.5 h-3.5 text-rose-500" />
-                    <span>Exam Prep / Urgent</span>
+                    <span>Urgent</span>
                   </button>
                 </div>
+              </div>
 
-                <div className="text-xs text-slate-500 font-medium">
-                  Showing <strong>{filteredQuestions.length}</strong> questions
-                </div>
+              {/* Clean Subject Filter Strip */}
+              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none">
+                {CATEGORIES.map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setQuestionCategory(cat)}
+                    className={`text-xs font-semibold whitespace-nowrap px-3.5 py-1.5 rounded-xl transition-all cursor-pointer shrink-0 ${
+                      questionCategory === cat
+                        ? 'bg-slate-900 text-white shadow-2xs'
+                        : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200/80'
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Questions Grid/List */}
+            {/* Questions List */}
             {filteredQuestions.length === 0 ? (
-              <div className="bg-white rounded-3xl border border-dashed border-slate-300 p-12 text-center">
-                <MessageSquare className="w-12 h-12 text-slate-300 mx-auto mb-3" />
-                <h3 className="text-base font-bold text-slate-800">No questions found</h3>
-                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto">
-                  Try adjusting your search query, selecting "All Campuses", or be the first to post a question for this course!
+              <div className="bg-white rounded-2xl border border-dashed border-slate-300 p-10 text-center">
+                <MessageSquare className="w-10 h-10 text-slate-300 mx-auto mb-3" />
+                <h3 className="text-base font-bold text-slate-900">No questions yet</h3>
+                <p className="text-xs text-slate-500 mt-1 max-w-sm mx-auto leading-relaxed">
+                  Be the first student at {currentUser.school || 'your campus'} to ask a course question or switch to All Campuses.
                 </p>
                 <button
                   onClick={handleOpenAskModal}
-                  className="mt-4 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer transition-colors"
+                  className="mt-4 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-xs cursor-pointer transition-colors"
                 >
                   Ask a Question
                 </button>
@@ -1097,36 +1085,31 @@ export default function App() {
         {currentTab === 'marketplace' && (
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8">
             {/* Clean Modern Marketplace Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-5 bg-white p-5 rounded-2xl border border-slate-200/90 shadow-2xs">
               <div>
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-                    {currentUser.school || selectedCampus} • Campus Marketplace
-                  </span>
-                  <span className="text-[11px] font-extrabold text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md border border-blue-200">
-                    Currency: {currentUser.currencySymbol} ({currentUser.currencyCode || 'USD'})
-                  </span>
-                </div>
-                <h1 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
+                <p className="text-xs font-semibold text-blue-600 mb-1">
+                  {currentUser.school || selectedCampus} · Currency: {currentUser.currencySymbol} ({currentUser.currencyCode || 'USD'})
+                </p>
+                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                   Campus Materials & Thrift
                 </h1>
-                <p className="text-xs sm:text-sm text-slate-500 font-medium mt-0.5">
-                  Exchange textbooks, lab gear & tech with peers using direct transfer in {currentUser.currencyCode || 'local currency'}
+                <p className="text-xs sm:text-sm text-slate-500 mt-1">
+                  Buy and sell textbooks, lab kits & tech directly in {currentUser.currencyCode || 'local currency'}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center gap-2 shrink-0 self-start sm:self-auto">
                 <button
                   onClick={() => setShowHowItWorksModal(true)}
-                  className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5"
+                  className="px-3.5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1.5 whitespace-nowrap"
                   title="How P2P Bank Transfer Works"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <ShieldCheck className="w-4 h-4 text-blue-600" />
                   <span>How It Works</span>
                 </button>
                 <button
                   onClick={handleOpenSellModal}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-4 py-2.5 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs sm:text-sm rounded-xl shadow-xs transition-all flex items-center gap-1.5 cursor-pointer whitespace-nowrap"
                 >
                   <Plus className="w-4 h-4 stroke-[2.5]" />
                   <span>Sell Material</span>
@@ -1134,79 +1117,81 @@ export default function App() {
               </div>
             </div>
 
-            {/* School Colleague vs All Campuses Filter Bar */}
-            <div className="flex items-center gap-2 mb-4">
-              <button
-                onClick={() => setFilterMySchoolOnly(true)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  filterMySchoolOnly
-                    ? 'bg-blue-600 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>🎓 Colleagues at {currentUser.school || 'My School'}</span>
-              </button>
-
-              <button
-                onClick={() => setFilterMySchoolOnly(false)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 ${
-                  !filterMySchoolOnly
-                    ? 'bg-slate-900 text-white shadow-xs'
-                    : 'bg-white text-slate-600 hover:bg-slate-100 border border-slate-200'
-                }`}
-              >
-                <span>🌐 All Campuses</span>
-              </button>
-            </div>
-
-            {/* Sub-View Navigation Tabs */}
-            <div className="flex flex-wrap items-center gap-2 mb-6 bg-slate-100/90 p-1.5 rounded-2xl border border-slate-200">
-              <button
-                onClick={() => setMarketView('browse')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                  marketView === 'browse'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <ShoppingBag className="w-4 h-4 text-blue-600" />
-                <span>Browse Materials</span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] bg-slate-200 text-slate-700 font-bold">
-                  {filteredMarketplaceItems.length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setMarketView('my_receipts')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                  marketView === 'my_receipts'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <Receipt className="w-4 h-4 text-emerald-600" />
-                <span>My Purchases & Receipts</span>
-                <span className="px-2 py-0.5 rounded-full text-[11px] bg-emerald-100 text-emerald-800 font-bold">
-                  {orders.filter((o) => o.buyer.id === currentUser.id).length}
-                </span>
-              </button>
-
-              <button
-                onClick={() => setMarketView('seller_receipts')}
-                className={`flex items-center gap-2 px-3.5 py-2 rounded-xl font-bold text-xs sm:text-sm transition-all cursor-pointer ${
-                  marketView === 'seller_receipts'
-                    ? 'bg-white text-slate-900 shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                <FileCheck className="w-4 h-4 text-purple-600" />
-                <span>Verify Buyer Receipts</span>
-                {orders.filter((o) => o.seller.id === currentUser.id && o.status === 'receipt_submitted').length > 0 && (
-                  <span className="px-2 py-0.5 rounded-full text-[11px] bg-amber-500 text-white font-black animate-pulse">
-                    {orders.filter((o) => o.seller.id === currentUser.id && o.status === 'receipt_submitted').length} Pending
+            {/* Unified Segmented Views & Campus Filter */}
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+              {/* Sub-View Navigation Tabs */}
+              <div className="inline-flex flex-wrap items-center gap-1 p-1 bg-slate-200/75 rounded-xl">
+                <button
+                  onClick={() => setMarketView('browse')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+                    marketView === 'browse'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <ShoppingBag className="w-3.5 h-3.5 text-blue-600" />
+                  <span>Browse</span>
+                  <span className="text-[11px] text-slate-400 tabular-nums">
+                    ({filteredMarketplaceItems.length})
                   </span>
-                )}
-              </button>
+                </button>
+
+                <button
+                  onClick={() => setMarketView('my_receipts')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+                    marketView === 'my_receipts'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <Receipt className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>My Purchases</span>
+                  <span className="text-[11px] text-slate-400 tabular-nums">
+                    ({orders.filter((o) => o.buyer.id === currentUser.id).length})
+                  </span>
+                </button>
+
+                <button
+                  onClick={() => setMarketView('seller_receipts')}
+                  className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg font-bold text-xs transition-all cursor-pointer whitespace-nowrap ${
+                    marketView === 'seller_receipts'
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <FileCheck className="w-3.5 h-3.5 text-indigo-600" />
+                  <span>Verify Receipts</span>
+                  {orders.filter((o) => o.seller.id === currentUser.id && o.status === 'receipt_submitted').length > 0 && (
+                    <span className="px-1.5 py-0.5 rounded-md text-[10px] bg-amber-500 text-white font-bold tabular-nums">
+                      {orders.filter((o) => o.seller.id === currentUser.id && o.status === 'receipt_submitted').length}
+                    </span>
+                  )}
+                </button>
+              </div>
+
+              {/* School Colleague vs All Campuses Segmented Switch */}
+              <div className="inline-flex items-center p-1 bg-slate-200/75 rounded-xl">
+                <button
+                  onClick={() => setFilterMySchoolOnly(true)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    filterMySchoolOnly
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🎓 {currentUser.school || 'My School'}
+                </button>
+                <button
+                  onClick={() => setFilterMySchoolOnly(false)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer whitespace-nowrap ${
+                    !filterMySchoolOnly
+                      ? 'bg-white text-slate-900 shadow-2xs'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  🌐 All Campuses
+                </button>
+              </div>
             </div>
 
             {/* =======================
@@ -1214,82 +1199,61 @@ export default function App() {
             ======================= */}
             {marketView === 'browse' && (
               <>
-                {/* Category Navigation Pills */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 mb-6">
-                  {MARKETPLACE_CATEGORIES.map((cat) => {
-                    const isSelected = marketCategory === cat.id;
-                    return (
-                      <button
-                        key={cat.id}
-                        onClick={() => setMarketCategory(cat.id)}
-                        className={`p-3 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between ${
-                          isSelected
-                            ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-amber-400/40'
-                            : 'bg-white text-slate-700 border-slate-200 hover:border-indigo-300 hover:shadow-xs'
-                        }`}
-                      >
-                        <div className="flex items-center justify-between mb-2">
-                          <span className={`text-[10px] font-bold uppercase tracking-wider ${isSelected ? 'text-amber-400' : 'text-slate-400'}`}>
-                            Category
-                          </span>
-                          {isSelected && <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />}
-                        </div>
-                        <span className="text-xs sm:text-sm font-bold truncate">
+                {/* Sleek Single-Line Category Strip & Compact Filters */}
+                <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-6">
+                  <div className="flex items-center gap-1.5 overflow-x-auto pb-1 lg:pb-0 scrollbar-none">
+                    {MARKETPLACE_CATEGORIES.map((cat) => {
+                      const isSelected = marketCategory === cat.id;
+                      return (
+                        <button
+                          key={cat.id}
+                          onClick={() => setMarketCategory(cat.id)}
+                          className={`px-3.5 py-1.5 rounded-xl text-xs font-semibold whitespace-nowrap transition-all cursor-pointer shrink-0 ${
+                            isSelected
+                              ? 'bg-slate-900 text-white shadow-2xs'
+                              : 'bg-white text-slate-600 border border-slate-200/80 hover:bg-slate-100'
+                          }`}
+                        >
                           {cat.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+                        </button>
+                      );
+                    })}
+                  </div>
 
-                {/* Filter & Sort Sub-bar */}
-                <div className="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-4 mb-6">
-                  <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-xs">
-                    {/* Condition filter */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-400 uppercase tracking-wider">Condition:</span>
-                      <select
-                        value={marketCondition}
-                        onChange={(e) => setMarketCondition(e.target.value)}
-                        className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="all">All Conditions</option>
-                        <option value="Brand New">Brand New</option>
-                        <option value="Like New">Like New</option>
-                        <option value="Good">Good</option>
-                        <option value="Fair">Fair</option>
-                      </select>
-                    </div>
+                  {/* Compact Sort & Condition Controls */}
+                  <div className="flex flex-wrap items-center gap-2 text-xs shrink-0">
+                    <select
+                      value={marketCondition}
+                      onChange={(e) => setMarketCondition(e.target.value)}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="all">All Conditions</option>
+                      <option value="Brand New">Brand New</option>
+                      <option value="Like New">Like New</option>
+                      <option value="Good">Good</option>
+                      <option value="Fair">Fair</option>
+                    </select>
 
-                    {/* Sort */}
-                    <div className="flex items-center gap-1.5">
-                      <span className="font-bold text-slate-400 uppercase tracking-wider">Sort:</span>
-                      <select
-                        value={marketSort}
-                        onChange={(e) => setMarketSort(e.target.value as any)}
-                        className="bg-slate-50 border border-slate-300 rounded-lg px-2.5 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="newest">Newest First</option>
-                        <option value="price_asc">Price: Low to High</option>
-                        <option value="price_desc">Price: High to Low</option>
-                        <option value="savings">Biggest Savings %</option>
-                      </select>
-                    </div>
+                    <select
+                      value={marketSort}
+                      onChange={(e) => setMarketSort(e.target.value as any)}
+                      className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+                    >
+                      <option value="newest">Newest First</option>
+                      <option value="price_asc">Price: Low to High</option>
+                      <option value="price_desc">Price: High to Low</option>
+                      <option value="savings">Biggest Savings %</option>
+                    </select>
 
-                    {/* Negotiable filter */}
-                    <label className="flex items-center gap-1.5 font-semibold text-slate-600 cursor-pointer ml-1">
+                    <label className="flex items-center gap-1.5 font-semibold text-slate-600 cursor-pointer bg-white border border-slate-200 rounded-xl px-3 py-1.5">
                       <input
                         type="checkbox"
                         checked={onlyNegotiable}
                         onChange={(e) => setOnlyNegotiable(e.target.checked)}
-                        className="rounded text-indigo-600 focus:ring-indigo-500"
+                        className="rounded text-blue-600 focus:ring-blue-500"
                       />
-                      <span>Negotiable Only</span>
+                      <span>Negotiable</span>
                     </label>
-                  </div>
-
-                  <div className="text-xs text-slate-500 font-medium">
-                    <strong>{filteredMarketplaceItems.length}</strong> items listed
                   </div>
                 </div>
 
@@ -1395,8 +1359,8 @@ export default function App() {
                                   <h4 className="text-sm font-black text-slate-900 line-clamp-1">
                                     {order.itemTitle}
                                   </h4>
-                                  <p className="text-xs font-bold text-blue-600">
-                                    ${order.itemPrice.toFixed(2)}
+                                  <p className="text-xs font-bold text-blue-600 tabular-nums">
+                                    {formatPrice(order.itemPrice, order.currencySymbol || currentUser.currencySymbol || '$')}
                                   </p>
                                   <p className="text-[11px] text-slate-500">
                                     Seller: {order.seller.name} ({order.seller.college})
@@ -1616,31 +1580,33 @@ export default function App() {
             TAB 5: SAVED / WISHLIST
         ============================================================ */}
         {currentTab === 'saved' && (
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            <h1 className="text-2xl font-black text-slate-900 mb-2">
+          <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+            <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mb-1">
               Saved Items & Bookmarked Questions
             </h1>
-            <p className="text-xs text-slate-500 mb-6">
-              Quick access to materials you're eyeing to buy and questions you're following for midterms.
+            <p className="text-xs sm:text-sm text-slate-500 mb-6">
+              Quick access to materials you're eyeing to buy and questions you're following for exams.
             </p>
 
             <div className="space-y-8">
               {/* Saved Marketplace Items */}
               <div>
-                <h2 className="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <h2 className="text-sm font-bold text-slate-800 mb-3 flex items-center gap-2">
                   <Heart className="w-4 h-4 text-rose-500 fill-rose-500" />
-                  <span>Wishlist School Materials ({filteredMarketplaceItems.filter((i) => i.isSaved).length})</span>
+                  <span>Wishlist School Materials ({marketplaceItems.filter((i) => i.isSaved).length})</span>
                 </h2>
                 {marketplaceItems.filter((i) => i.isSaved).length === 0 ? (
-                  <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-400">
-                    No marketplace items saved to wishlist yet. Click the heart icon on any textbook or gear!
+                  <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-xs text-slate-500">
+                    No marketplace items saved to wishlist yet. Click the heart icon on any item to save it here.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {marketplaceItems.filter((i) => i.isSaved).map((item) => (
                       <MarketplaceCard
                         key={item.id}
                         item={item}
+                        userCurrencySymbol={currentUser.currencySymbol || '$'}
+                        currentUserSchool={currentUser.school || currentUser.college}
                         onSelect={(it) => setActiveItem(it)}
                         onToggleSave={handleToggleSaveItem}
                         onQuickChat={handleStartChat}
@@ -1723,17 +1689,13 @@ export default function App() {
       </main>
 
       {/* Android Material 3 Bottom Navigation Bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200/90 shadow-lg">
-        <div className="max-w-xl mx-auto">
-          <AndroidBottomNav
-            currentTab={currentTab}
-            setCurrentTab={setCurrentTab}
-            onOpenActionSheet={() => setShowActionSheet(true)}
-            currentUser={currentUser}
-            unreadCount={conversations.length > 0 ? 1 : 0}
-          />
-        </div>
-      </div>
+      <AndroidBottomNav
+        currentTab={currentTab}
+        setCurrentTab={setCurrentTab}
+        onOpenActionSheet={() => setShowActionSheet(true)}
+        currentUser={currentUser}
+        unreadCount={conversations.length > 0 ? 1 : 0}
+      />
 
     {/* Center FAB Post Action Bottom Sheet */}
     {showActionSheet && (
