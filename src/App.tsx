@@ -71,7 +71,7 @@ import { UserProfileView } from './components/UserProfileView';
 import { OnboardingModal } from './components/OnboardingModal';
 import { SUPPORTED_COUNTRIES } from './data/campusLocations';
 import { triggerConfetti, formatPrice } from './utils/helpers';
-import { auth, syncUserProfile, getRegisteredUsers, updateUserFirestoreProfile, logOut } from './firebase';
+import { auth, syncUserProfile, getRegisteredUsers, updateUserFirestoreProfile, logOut, completeGoogleRedirectSignIn } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
@@ -247,8 +247,9 @@ export default function App() {
     });
   }, [currentUser.school]);
 
-  // Listen to Firebase Auth state for Google account sign-in
+  // Resolve redirect-based Google Auth if returning from OAuth redirect, and listen to Auth state
   useEffect(() => {
+    completeGoogleRedirectSignIn();
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         const synced = await syncUserProfile(fbUser, {
@@ -1729,7 +1730,9 @@ export default function App() {
         setCurrentUser={(u) => {
           setCurrentUser(u);
           setShowGoogleAuthModal(false);
-          setShowOnboardingModal(true);
+          if (!u.country || !u.school) {
+            setShowOnboardingModal(true);
+          }
         }}
         onRequireOnboarding={() => setShowOnboardingModal(true)}
         onClose={() => setShowGoogleAuthModal(false)}

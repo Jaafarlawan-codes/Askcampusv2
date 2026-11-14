@@ -3,6 +3,8 @@ import {
   getAuth, 
   GoogleAuthProvider, 
   signInWithPopup, 
+  signInWithRedirect,
+  getRedirectResult,
   signOut as firebaseSignOut, 
   onAuthStateChanged,
   User as FirebaseUser
@@ -102,8 +104,27 @@ export async function signInWithGoogle() {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
-    console.error('Google sign-in error:', error);
+    console.error('Google sign-in error:', error?.code, error?.message, error);
     throw error;
+  }
+}
+
+export async function signInWithGoogleRedirect() {
+  try {
+    await signInWithRedirect(auth, googleProvider);
+  } catch (error: any) {
+    console.error('Google redirect sign-in error:', error?.code, error?.message, error);
+    throw error;
+  }
+}
+
+export async function completeGoogleRedirectSignIn() {
+  try {
+    const result = await getRedirectResult(auth);
+    return result?.user || null;
+  } catch (error: any) {
+    console.error('Google redirect result error:', error?.code, error?.message, error);
+    return null;
   }
 }
 

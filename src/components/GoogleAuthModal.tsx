@@ -5,11 +5,14 @@ import {
   Check, 
   GraduationCap, 
   LogOut,
-  ArrowRight
+  ArrowRight,
+  Copy,
+  AlertTriangle
 } from 'lucide-react';
 import { StudentProfile } from '../types';
 import { triggerConfetti } from '../utils/helpers';
-import { signInWithGoogle, syncUserProfile, logOut } from '../firebase';
+import { signInWithGoogle, signInWithGoogleRedirect, syncUserProfile, logOut } from '../firebase';
+import firebaseConfig from '../../firebase-applet-config.json';
 
 interface GoogleAuthModalProps {
   currentUser: StudentProfile;
@@ -28,12 +31,18 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
 }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
+  const [showRedirectFallback, setShowRedirectFallback] = useState(false);
+  const [copiedDomain, setCopiedDomain] = useState(false);
 
   const hasRealAccount = Boolean(currentUser.id && currentUser.name && currentUser.school);
+  const isTopLevelWindow = typeof window !== 'undefined' && window.self === window.top;
 
   const handleFirebaseSignIn = async () => {
     setIsLoading(true);
     setErrorMessage(null);
+    setUnauthorizedDomain(null);
+    setShowRedirectFallback(false);
     try {
       const fbUser = await signInWithGoogle();
       if (fbUser) {
@@ -73,16 +82,59 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
       }
     } catch (err: any) {
       console.warn('Google sign-in error:', err);
-      if (err?.code === 'auth/popup-closed-by-user') {
-        setErrorMessage('Sign-in popup was closed. Please try again to connect your Google account.');
-      } else if (err?.code === 'auth/popup-blocked') {
-        setErrorMessage('The sign-in popup was blocked by your browser. Please allow popups for this site and retry.');
+      const code = err?.code || '';
+      const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+
+      if (code === 'auth/unauthorized-domain') {
+        setUnauthorizedDomain(hostname);
+        setErrorMessage(
+          `This domain (${hostname}) is not authorized in Firebase Authentication yet. Add it in Firebase Console → Authentication → Settings → Authorized domains.`
+        );
+      } else if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+        setShowRedirectFallback(true);
+        setErrorMessage(
+          'Your browser blocked the Google sign-in popup. Allow popups or use Redirect Sign-In below.'
+        );
+      } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+        setErrorMessage('Sign-in popup was closed before completing. Please try again.');
+      } else if (code === 'auth/network-request-failed') {
+        setErrorMessage('Network error connecting to Google Authentication. Check your connection and retry.');
       } else {
-        setErrorMessage('Unable to connect with Google. Please try again.');
+        setErrorMessage(
+          `Google sign-in failed${code ? ` (${code})` : ''}. Please retry or use Redirect Sign-In.`
+        );
+        if (isTopLevelWindow) setShowRedirectFallback(true);
       }
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleRedirectSignIn = async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+    try {
+      await signInWithGoogleRedirect();
+    } catch (err: any) {
+      const code = err?.code || '';
+      if (code === 'auth/unauthorized-domain') {
+        const hostname = typeof window !== 'undefined' ? window.location.hostname : '';
+        setUnauthorizedDomain(hostname);
+        setErrorMessage(
+          `This domain (${hostname}) is not authorized in Firebase Authentication yet.`
+        );
+      } else {
+        setErrorMessage(`Redirect sign-in failed${code ? ` (${code})` : ''}.`);
+      }
+      setIsLoading(false);
+    }
+  };
+
+  const handleCopyDomain = () => {
+    if (!unauthorizedDomain) return;
+    navigator.clipboard?.writeText(unauthorizedDomain);
+    setCopiedDomain(true);
+    setTimeout(() => setCopiedDomain(false), 2000);
   };
 
   const handleSignOutAccount = async () => {
@@ -194,8 +246,29 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
         {/* Main Google Sign-In Action Button */}
         <div className="p-4 space-y-3">
           {errorMessage && (
-            <div className="p-2.5 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-[11px] leading-relaxed">
-              {errorMessage}
+            <div className="p-3 bg-amber-50 border border-amber-200 text-amber-900 rounded-xl text-[11px] leading-relaxed space-y-2">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                <span>{errorMessage}</span>
+              </div>
+              {unauthorizedDomain && (
+                <div className="bg-white border border-amber-200 rounded-lg p-2 space-y-1.5">
+                  <div className="flex items-center justify-between gap-2">
+                    <code className="text-[11px] font-bold text-slate-900 truncate">{unauthorizedDomain}</code>
+                    <button
+                      type="button"
+                      onClick={handleCopyDomain}
+                      className="inline-flex items-center gap-1 px-2 py-1 rounded bg-slate-100 hover:bg-slate-200 text-[10px] font-bold text-slate-700 cursor-pointer shrink-0"
+                    >
+                      <Copy className="w-3 h-3" />
+                      <span>{copiedDomain ? 'Copied' : 'Copy'}</span>
+                    </button>
+                  </div>
+                  <div className="text-[10px] text-slate-600">
+                    Firebase Project: <span className="font-semibold">{firebaseConfig.projectId}</span>
+                  </div>
+                </div>
+              )}
             </div>
           )}
 
@@ -212,6 +285,17 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
             </svg>
             <span>{isLoading ? 'Connecting to Google...' : (hasRealAccount ? 'Switch Google Account' : 'Sign Up / Sign In with Google')}</span>
           </button>
+
+          {(showRedirectFallback || (isTopLevelWindow && !unauthorizedDomain)) && (
+            <button
+              type="button"
+              onClick={handleRedirectSignIn}
+              disabled={isLoading}
+              className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
+            >
+              Popup blocked? Sign in with Google Redirect instead
+            </button>
+          )}
 
           <p className="text-[11px] text-slate-500 text-center leading-relaxed px-2">
             After signing in with Google, you will select your country and school to see local prices and classmates.
