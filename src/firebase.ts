@@ -18,6 +18,8 @@ import {
   getDocs,
   getDocFromServer,
   collection,
+  query,
+  where,
   onSnapshot
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -136,6 +138,40 @@ export async function logOut() {
   }
 }
 
+async function syncCampusPeerDirectory(uid: string, profile: Record<string, any>) {
+  if (!uid || !profile.school || !profile.country || profile.school === 'Stanford University') {
+    return;
+  }
+  const peerRef = doc(db, 'campus_peers', uid);
+  const existingPeer = await getDoc(peerRef);
+  const editableFields = {
+    displayName: profile.displayName || profile.name || 'Campus Student',
+    username: profile.username || 'student',
+    avatar: profile.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    college: profile.school || profile.college || '',
+    school: profile.school || profile.college || '',
+    country: profile.country || '',
+    state: profile.state || '',
+    currencyCode: profile.currencyCode || 'USD',
+    currencySymbol: profile.currencySymbol || '$',
+    major: profile.major || '',
+    graduationYear: profile.graduationYear || '2026',
+    updatedAt: new Date().toISOString(),
+  };
+
+  if (!existingPeer.exists()) {
+    await setDoc(peerRef, {
+      uid,
+      ...editableFields,
+      karma: typeof profile.karma === 'number' ? profile.karma : 50,
+      badges: Array.isArray(profile.badges) ? profile.badges.slice(0, 10) : ['Verified Student'],
+      verifiedStudent: true,
+    });
+  } else {
+    await updateDoc(peerRef, editableFields);
+  }
+}
+
 // User Profile Sync with Firestore
 export async function syncUserProfile(user: FirebaseUser, additionalData: Partial<StudentProfile> = {}) {
   if (!user) return null;
@@ -166,6 +202,7 @@ export async function syncUserProfile(user: FirebaseUser, additionalData: Partia
         updatedAt: new Date().toISOString(),
       };
       await setDoc(userRef, newProfile);
+      await syncCampusPeerDirectory(user.uid, newProfile);
       return newProfile;
     } else {
       const existing = snap.data();
@@ -174,10 +211,9 @@ export async function syncUserProfile(user: FirebaseUser, additionalData: Partia
         existing.college = '';
         existing.school = '';
       }
-      // If additional data was provided, merge updates
+      // If additional data was provided, merge updates strictly using allowed fields
       if (additionalData && (additionalData.school || additionalData.country)) {
-        const updated = {
-          ...existing,
+        const updateFields = {
           school: additionalData.school || existing.school || '',
           college: additionalData.school || additionalData.college || existing.college || '',
           country: additionalData.country || existing.country || '',
@@ -187,9 +223,12 @@ export async function syncUserProfile(user: FirebaseUser, additionalData: Partia
           major: additionalData.major || existing.major || '',
           updatedAt: new Date().toISOString(),
         };
-        await setDoc(userRef, updated, { merge: true });
-        return updated;
+        await updateDoc(userRef, updateFields);
+        const merged = { ...existing, ...updateFields };
+        await syncCampusPeerDirectory(user.uid, merged);
+        return merged;
       }
+      await syncCampusPeerDirectory(user.uid, existing);
       return existing;
     }
   } catch (err) {
@@ -203,28 +242,52 @@ export async function updateUserFirestoreProfile(uid: string, profileData: Parti
   if (!uid) return;
   const userRef = doc(db, 'users', uid);
   try {
-    await setDoc(userRef, {
-      ...profileData,
+    const allowedUpdate: Record<string, any> = {
       updatedAt: new Date().toISOString(),
-    }, { merge: true });
+    };
+    if (profileData.name) allowedUpdate.displayName = profileData.name;
+    if (profileData.username) allowedUpdate.username = profileData.username;
+    if (profileData.avatar) allowedUpdate.avatar = profileData.avatar;
+    if (profileData.college !== undefined) allowedUpdate.college = profileData.college;
+    if (profileData.school !== undefined) allowedUpdate.school = profileData.school;
+    if (profileData.country !== undefined) allowedUpdate.country = profileData.country;
+    if (profileData.state !== undefined) allowedUpdate.state = profileData.state;
+    if (profileData.currencyCode !== undefined) allowedUpdate.currencyCode = profileData.currencyCode;
+    if (profileData.currencySymbol !== undefined) allowedUpdate.currencySymbol = profileData.currencySymbol;
+    if (profileData.major !== undefined) allowedUpdate.major = profileData.major;
+    if (profileData.graduationYear !== undefined) allowedUpdate.graduationYear = profileData.graduationYear;
+
+    await setDoc(userRef, allowedUpdate, { merge: true });
+    await syncCampusPeerDirectory(uid, {
+      ...allowedUpdate,
+      displayName: profileData.name || auth.currentUser?.displayName || 'Campus Student',
+      badges: profileData.badges,
+      karma: profileData.karma,
+    });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
   }
 }
 
-// Fetch all genuine registered accounts created by users in Firestore
-export async function getRegisteredUsers(): Promise<StudentProfile[]> {
+// Fetch genuine registered colleagues from non-PII campus_peers directory (authenticated only)
+export async function getRegisteredUsers(userSchool?: string): Promise<StudentProfile[]> {
+  if (!auth.currentUser) {
+    return [];
+  }
   try {
-    const snap = await getDocs(collection(db, 'users'));
+    const peersCollection = collection(db, 'campus_peers');
+    const q = userSchool
+      ? query(peersCollection, where('school', '==', userSchool))
+      : peersCollection;
+    const snap = await getDocs(q);
     const users: StudentProfile[] = [];
     snap.forEach((d) => {
       const data = d.data();
-      // Only include real users who completed their campus setup
       if (data.school && data.country && data.school !== 'Stanford University') {
         users.push({
           id: data.uid || d.id,
           name: data.displayName || 'Campus Student',
-          username: data.username || (data.email ? data.email.split('@')[0] : 'student'),
+          username: data.username || 'student',
           avatar: data.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
           college: data.school || data.college || 'Campus',
           school: data.school || data.college || 'Campus',
@@ -242,7 +305,7 @@ export async function getRegisteredUsers(): Promise<StudentProfile[]> {
     });
     return users;
   } catch (err) {
-    console.error('Error fetching registered users:', err);
+    console.error('Error fetching registered peers:', err);
     return [];
   }
 }

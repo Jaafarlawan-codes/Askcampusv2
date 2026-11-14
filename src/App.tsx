@@ -240,12 +240,16 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Load real registered user accounts from Firestore
+  // Load real registered colleagues from non-PII campus_peers when authenticated
   useEffect(() => {
-    getRegisteredUsers().then((users) => {
+    if (!currentUser.id || !currentUser.school) {
+      setRegisteredColleagues([]);
+      return;
+    }
+    getRegisteredUsers(currentUser.school).then((users) => {
       setRegisteredColleagues(users);
     });
-  }, [currentUser.school]);
+  }, [currentUser.id, currentUser.school]);
 
   // Resolve redirect-based Google Auth if returning from OAuth redirect, and listen to Auth state
   useEffect(() => {
@@ -1838,7 +1842,7 @@ export default function App() {
             localStorage.setItem('askcampus_entered', 'true');
             if (updatedUser.id) {
               await updateUserFirestoreProfile(updatedUser.id, updatedUser);
-              getRegisteredUsers().then((users) => setRegisteredColleagues(users));
+              getRegisteredUsers(updatedUser.school).then((users) => setRegisteredColleagues(users));
             }
             showToast(`Welcome to ${updatedUser.school}! Currency set to ${updatedUser.currencySymbol} (${updatedUser.currencyCode}).`);
           }}

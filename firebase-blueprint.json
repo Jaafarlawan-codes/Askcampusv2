@@ -95,6 +95,30 @@
       },
       "required": ["id", "title", "price", "condition", "sellerId"]
     },
+    "campusPeer": {
+      "title": "Public Campus Colleague Profile",
+      "description": "Publicly discoverable non-PII student profile for campus colleague matching",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "displayName": { "type": "string" },
+        "username": { "type": "string" },
+        "avatar": { "type": "string" },
+        "college": { "type": "string" },
+        "school": { "type": "string" },
+        "country": { "type": "string" },
+        "state": { "type": "string" },
+        "currencyCode": { "type": "string" },
+        "currencySymbol": { "type": "string" },
+        "major": { "type": "string" },
+        "graduationYear": { "type": "string" },
+        "karma": { "type": "number" },
+        "badges": { "type": "array" },
+        "verifiedStudent": { "type": "boolean" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "displayName", "school", "country"]
+    },
     "conversation": {
       "title": "Chat Conversation",
       "description": "In-app messaging thread between buyer and seller",
@@ -117,7 +141,11 @@
   "firestore": {
     "/users/{userId}": {
       "schema": { "$ref": "#/entities/userProfile" },
-      "description": "User profile document keyed by Firebase Auth UID"
+      "description": "Private owner-only user profile document keyed by Firebase Auth UID"
+    },
+    "/campus_peers/{userId}": {
+      "schema": { "$ref": "#/entities/campusPeer" },
+      "description": "Non-PII colleague directory scoped to authenticated campus students"
     },
     "/questions/{questionId}": {
       "schema": { "$ref": "#/entities/question" },
