@@ -5,6 +5,8 @@ import {
   signInWithPopup, 
   signInWithRedirect,
   getRedirectResult,
+  setPersistence,
+  browserLocalPersistence,
   signOut as firebaseSignOut, 
   onAuthStateChanged,
   User as FirebaseUser
@@ -76,8 +78,12 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 // Initialize Firebase App
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firebase Auth
+// Initialize Firebase Auth with explicit local persistence
 export const auth = getAuth(app);
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.warn('Auth persistence setup warning:', err);
+});
+
 export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({
   prompt: 'select_account'
@@ -100,9 +106,12 @@ async function testConnection() {
 }
 testConnection();
 
+const REDIRECT_PENDING_KEY = 'askcampus_auth_redirect_pending';
+
 // Auth helper functions
 export async function signInWithGoogle() {
   try {
+    sessionStorage.removeItem(REDIRECT_PENDING_KEY);
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
   } catch (error: any) {
@@ -113,25 +122,44 @@ export async function signInWithGoogle() {
 
 export async function signInWithGoogleRedirect() {
   try {
+    sessionStorage.setItem(REDIRECT_PENDING_KEY, '1');
     await signInWithRedirect(auth, googleProvider);
   } catch (error: any) {
+    sessionStorage.removeItem(REDIRECT_PENDING_KEY);
     console.error('Google redirect sign-in error:', error?.code, error?.message, error);
     throw error;
   }
 }
 
-export async function completeGoogleRedirectSignIn() {
+export async function completeGoogleRedirectSignIn(): Promise<{
+  user: FirebaseUser | null;
+  errorCode: string | null;
+  redirectLost: boolean;
+}> {
+  const wasPending = typeof sessionStorage !== 'undefined' && sessionStorage.getItem(REDIRECT_PENDING_KEY) === '1';
   try {
     const result = await getRedirectResult(auth);
-    return result?.user || null;
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+    }
+    if (result?.user) {
+      return { user: result.user, errorCode: null, redirectLost: false };
+    }
+    return { user: null, errorCode: null, redirectLost: wasPending && !auth.currentUser };
   } catch (error: any) {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+    }
     console.error('Google redirect result error:', error?.code, error?.message, error);
-    return null;
+    return { user: null, errorCode: error?.code || 'auth/redirect-failed', redirectLost: false };
   }
 }
 
 export async function logOut() {
   try {
+    if (typeof sessionStorage !== 'undefined') {
+      sessionStorage.removeItem(REDIRECT_PENDING_KEY);
+    }
     await firebaseSignOut(auth);
   } catch (error) {
     console.error('Logout error:', error);
@@ -142,99 +170,129 @@ async function syncCampusPeerDirectory(uid: string, profile: Record<string, any>
   if (!uid || !profile.school || !profile.country || profile.school === 'Stanford University') {
     return;
   }
-  const peerRef = doc(db, 'campus_peers', uid);
-  const existingPeer = await getDoc(peerRef);
-  const editableFields = {
-    displayName: profile.displayName || profile.name || 'Campus Student',
-    username: profile.username || 'student',
-    avatar: profile.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    college: profile.school || profile.college || '',
-    school: profile.school || profile.college || '',
-    country: profile.country || '',
-    state: profile.state || '',
-    currencyCode: profile.currencyCode || 'USD',
-    currencySymbol: profile.currencySymbol || '$',
-    major: profile.major || '',
-    graduationYear: profile.graduationYear || '2026',
-    updatedAt: new Date().toISOString(),
-  };
+  try {
+    const peerRef = doc(db, 'campus_peers', uid);
+    const existingPeer = await getDoc(peerRef);
+    const editableFields = {
+      displayName: profile.displayName || profile.name || 'Campus Student',
+      username: profile.username || 'student',
+      avatar: profile.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+      college: profile.school || profile.college || '',
+      school: profile.school || profile.college || '',
+      country: profile.country || '',
+      state: profile.state || '',
+      currencyCode: profile.currencyCode || 'USD',
+      currencySymbol: profile.currencySymbol || '$',
+      major: profile.major || '',
+      graduationYear: profile.graduationYear || '2026',
+      updatedAt: new Date().toISOString(),
+    };
 
-  if (!existingPeer.exists()) {
-    await setDoc(peerRef, {
-      uid,
-      ...editableFields,
-      karma: typeof profile.karma === 'number' ? profile.karma : 50,
-      badges: Array.isArray(profile.badges) ? profile.badges.slice(0, 10) : ['Verified Student'],
-      verifiedStudent: true,
-    });
-  } else {
-    await updateDoc(peerRef, editableFields);
+    if (!existingPeer.exists()) {
+      await setDoc(peerRef, {
+        uid,
+        ...editableFields,
+        karma: typeof profile.karma === 'number' ? profile.karma : 50,
+        badges: Array.isArray(profile.badges) ? profile.badges.slice(0, 10) : ['Verified Student'],
+        verifiedStudent: true,
+      });
+    } else {
+      await updateDoc(peerRef, editableFields);
+    }
+  } catch (err) {
+    console.warn('Non-blocking campus_peers sync warning:', err);
   }
 }
 
-// User Profile Sync with Firestore
+const inFlightSync = new Map<string, Promise<any>>();
+
+function buildFallbackProfile(user: FirebaseUser, additionalData: Partial<StudentProfile> = {}) {
+  const emailUsername = (user.email || 'student').split('@')[0];
+  return {
+    uid: user.uid,
+    email: user.email || '',
+    displayName: user.displayName || 'Campus Student',
+    username: emailUsername,
+    avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+    college: additionalData.school || additionalData.college || '',
+    school: additionalData.school || additionalData.college || '',
+    country: additionalData.country || '',
+    state: additionalData.state || '',
+    currencyCode: additionalData.currencyCode || '',
+    currencySymbol: additionalData.currencySymbol || '',
+    major: additionalData.major || '',
+    graduationYear: additionalData.graduationYear || '2026',
+    karma: 50,
+    badges: ['Verified Student'],
+    verifiedStudent: true,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  };
+}
+
+// User Profile Sync with Firestore (deduplicated & resilient against rule/network hiccups)
 export async function syncUserProfile(user: FirebaseUser, additionalData: Partial<StudentProfile> = {}) {
   if (!user) return null;
-  const userRef = doc(db, 'users', user.uid);
-  try {
-    const snap = await getDoc(userRef);
-
-    if (!snap.exists()) {
-      const emailUsername = (user.email || 'student').split('@')[0];
-      const newProfile: any = {
-        uid: user.uid,
-        email: user.email || '',
-        displayName: user.displayName || 'Campus Student',
-        username: emailUsername,
-        avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-        college: additionalData.school || additionalData.college || '',
-        school: additionalData.school || additionalData.college || '',
-        country: additionalData.country || '',
-        state: additionalData.state || '',
-        currencyCode: additionalData.currencyCode || '',
-        currencySymbol: additionalData.currencySymbol || '',
-        major: additionalData.major || '',
-        graduationYear: additionalData.graduationYear || '2026',
-        karma: 50,
-        badges: ['Verified Student'],
-        verifiedStudent: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
-      await setDoc(userRef, newProfile);
-      await syncCampusPeerDirectory(user.uid, newProfile);
-      return newProfile;
-    } else {
-      const existing = snap.data();
-      // Purge any legacy hardcoded 'Stanford University' placeholder if country was never set
-      if (existing.college === 'Stanford University' && !existing.country && !additionalData.school) {
-        existing.college = '';
-        existing.school = '';
-      }
-      // If additional data was provided, merge updates strictly using allowed fields
-      if (additionalData && (additionalData.school || additionalData.country)) {
-        const updateFields = {
-          school: additionalData.school || existing.school || '',
-          college: additionalData.school || additionalData.college || existing.college || '',
-          country: additionalData.country || existing.country || '',
-          state: additionalData.state || existing.state || '',
-          currencyCode: additionalData.currencyCode || existing.currencyCode || 'USD',
-          currencySymbol: additionalData.currencySymbol || existing.currencySymbol || '$',
-          major: additionalData.major || existing.major || '',
-          updatedAt: new Date().toISOString(),
-        };
-        await updateDoc(userRef, updateFields);
-        const merged = { ...existing, ...updateFields };
-        await syncCampusPeerDirectory(user.uid, merged);
-        return merged;
-      }
-      await syncCampusPeerDirectory(user.uid, existing);
-      return existing;
-    }
-  } catch (err) {
-    handleFirestoreError(err, OperationType.GET, `users/${user.uid}`);
-    return null;
+  const existingPromise = inFlightSync.get(user.uid);
+  if (existingPromise) {
+    return existingPromise;
   }
+
+  const syncTask = (async () => {
+    const userRef = doc(db, 'users', user.uid);
+    const fallback = buildFallbackProfile(user, additionalData);
+    try {
+      const snap = await getDoc(userRef);
+
+      if (!snap.exists()) {
+        await setDoc(userRef, fallback);
+        await syncCampusPeerDirectory(user.uid, fallback);
+        return fallback;
+      } else {
+        const existing = snap.data();
+        if (existing.college === 'Stanford University' && !existing.country && !additionalData.school) {
+          existing.college = '';
+          existing.school = '';
+        }
+        if (additionalData && (additionalData.school || additionalData.country)) {
+          const cleanedDoc = {
+            uid: user.uid,
+            email: existing.email || user.email || '',
+            displayName: existing.displayName || user.displayName || 'Campus Student',
+            username: existing.username || fallback.username,
+            avatar: existing.avatar || fallback.avatar,
+            school: additionalData.school || existing.school || '',
+            college: additionalData.school || additionalData.college || existing.college || '',
+            country: additionalData.country || existing.country || '',
+            state: additionalData.state || existing.state || '',
+            currencyCode: additionalData.currencyCode || existing.currencyCode || 'USD',
+            currencySymbol: additionalData.currencySymbol || existing.currencySymbol || '$',
+            major: additionalData.major || existing.major || '',
+            graduationYear: existing.graduationYear || '2026',
+            karma: typeof existing.karma === 'number' ? existing.karma : 50,
+            badges: Array.isArray(existing.badges) ? existing.badges.slice(0, 10) : ['Verified Student'],
+            verifiedStudent: true,
+            createdAt: existing.createdAt || new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          await setDoc(userRef, cleanedDoc);
+          await syncCampusPeerDirectory(user.uid, cleanedDoc);
+          return cleanedDoc;
+        }
+        await syncCampusPeerDirectory(user.uid, existing);
+        return existing;
+      }
+    } catch (err) {
+      // Log diagnostic info without discarding the user's active Google Auth session
+      console.error('Firestore profile sync failed, using verified Google session:', err);
+      return fallback;
+    } finally {
+      inFlightSync.delete(user.uid);
+    }
+  })();
+
+  inFlightSync.set(user.uid, syncTask);
+  return syncTask;
 }
 
 // Update specific fields on user profile in Firestore

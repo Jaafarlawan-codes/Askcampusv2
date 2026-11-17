@@ -20,6 +20,7 @@ interface GoogleAuthModalProps {
   onClose: () => void;
   onOpenDataManagement: () => void;
   onRequireOnboarding?: () => void;
+  initialError?: string | null;
 }
 
 export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
@@ -28,15 +29,15 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
   onClose,
   onOpenDataManagement,
   onRequireOnboarding,
+  initialError = null,
 }) => {
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(initialError);
   const [unauthorizedDomain, setUnauthorizedDomain] = useState<string | null>(null);
   const [showRedirectFallback, setShowRedirectFallback] = useState(false);
   const [copiedDomain, setCopiedDomain] = useState(false);
 
   const hasRealAccount = Boolean(currentUser.id && currentUser.name && currentUser.school);
-  const isTopLevelWindow = typeof window !== 'undefined' && window.self === window.top;
 
   const handleFirebaseSignIn = async () => {
     setIsLoading(true);
@@ -47,36 +48,48 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
       const fbUser = await signInWithGoogle();
       if (fbUser) {
         const synced = await syncUserProfile(fbUser, {});
-        if (synced) {
-          const profile: StudentProfile = {
-            id: fbUser.uid,
-            name: synced.displayName || fbUser.displayName || 'Campus Student',
-            username: (fbUser.email || 'student').split('@')[0],
-            avatar: synced.avatar || fbUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-            college: synced.school || synced.college || '',
-            school: synced.school || synced.college || '',
-            country: synced.country || '',
-            state: synced.state || '',
-            currencyCode: synced.currencyCode || 'USD',
-            currencySymbol: synced.currencySymbol || '$',
-            major: synced.major || '',
-            graduationYear: synced.graduationYear || '2026',
-            karma: synced.karma || 50,
-            badges: synced.badges || ['Verified Student', 'Google Authenticated'],
-            verifiedStudent: true,
-          };
-          setCurrentUser(profile);
-          localStorage.setItem('askcampus_user_v2', JSON.stringify(profile));
-          localStorage.setItem('askcampus_entered', 'true');
+        const profileData = synced || {
+          displayName: fbUser.displayName || 'Campus Student',
+          avatar: fbUser.photoURL || '',
+          school: '',
+          college: '',
+          country: '',
+          state: '',
+          currencyCode: 'USD',
+          currencySymbol: '$',
+          major: '',
+          graduationYear: '2026',
+          karma: 50,
+          badges: ['Verified Student', 'Google Authenticated'],
+        };
 
-          triggerConfetti();
-          onClose();
+        const profile: StudentProfile = {
+          id: fbUser.uid,
+          name: profileData.displayName || fbUser.displayName || 'Campus Student',
+          username: (fbUser.email || 'student').split('@')[0],
+          avatar: profileData.avatar || fbUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          college: profileData.school || profileData.college || '',
+          school: profileData.school || profileData.college || '',
+          country: profileData.country || '',
+          state: profileData.state || '',
+          currencyCode: profileData.currencyCode || 'USD',
+          currencySymbol: profileData.currencySymbol || '$',
+          major: profileData.major || '',
+          graduationYear: profileData.graduationYear || '2026',
+          karma: profileData.karma || 50,
+          badges: profileData.badges || ['Verified Student', 'Google Authenticated'],
+          verifiedStudent: true,
+        };
+        setCurrentUser(profile);
+        localStorage.setItem('askcampus_user_v2', JSON.stringify(profile));
+        localStorage.setItem('askcampus_entered', 'true');
 
-          // Immediately ask user for their country, state, and school if not configured
-          if (!profile.country || !profile.school) {
-            if (onRequireOnboarding) {
-              onRequireOnboarding();
-            }
+        triggerConfetti();
+        onClose();
+
+        if (!profile.country || !profile.school) {
+          if (onRequireOnboarding) {
+            onRequireOnboarding();
           }
         }
       }
@@ -93,17 +106,16 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
       } else if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
         setShowRedirectFallback(true);
         setErrorMessage(
-          'Your browser blocked the Google sign-in popup. Allow popups or use Redirect Sign-In below.'
+          'Your browser blocked the Google sign-in popup. Allow popups in browser settings, or try Redirect Sign-In below.'
         );
       } else if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
-        setErrorMessage('Sign-in popup was closed before completing. Please try again.');
+        setErrorMessage('Sign-in popup was closed before completing. Tap the button above and select your Google account.');
       } else if (code === 'auth/network-request-failed') {
         setErrorMessage('Network error connecting to Google Authentication. Check your connection and retry.');
       } else {
         setErrorMessage(
-          `Google sign-in failed${code ? ` (${code})` : ''}. Please retry or use Redirect Sign-In.`
+          `Google sign-in failed${code ? ` (${code})` : ''}. Please try again.`
         );
-        if (isTopLevelWindow) setShowRedirectFallback(true);
       }
     } finally {
       setIsLoading(false);
@@ -286,14 +298,14 @@ export const GoogleAuthModal: React.FC<GoogleAuthModalProps> = ({
             <span>{isLoading ? 'Connecting to Google...' : (hasRealAccount ? 'Switch Google Account' : 'Sign Up / Sign In with Google')}</span>
           </button>
 
-          {(showRedirectFallback || (isTopLevelWindow && !unauthorizedDomain)) && (
+          {showRedirectFallback && (
             <button
               type="button"
               onClick={handleRedirectSignIn}
               disabled={isLoading}
               className="w-full py-2.5 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs transition-colors cursor-pointer disabled:opacity-50"
             >
-              Popup blocked? Sign in with Google Redirect instead
+              Popup blocked? Try Redirect Sign-In instead
             </button>
           )}
 

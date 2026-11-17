@@ -114,6 +114,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [showActionSheet, setShowActionSheet] = useState<boolean>(false);
   const [showGoogleAuthModal, setShowGoogleAuthModal] = useState<boolean>(false);
+  const [authRedirectError, setAuthRedirectError] = useState<string | null>(null);
   const [showOnboardingModal, setShowOnboardingModal] = useState<boolean>(() => {
     const saved = localStorage.getItem('askcampus_user_v2');
     if (saved) {
@@ -253,54 +254,77 @@ export default function App() {
 
   // Resolve redirect-based Google Auth if returning from OAuth redirect, and listen to Auth state
   useEffect(() => {
-    completeGoogleRedirectSignIn();
-    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
-      if (fbUser) {
-        const synced = await syncUserProfile(fbUser, {
-          college: currentUser.college,
-          school: currentUser.school,
-          country: currentUser.country,
-          state: currentUser.state,
-          currencyCode: currentUser.currencyCode,
-          currencySymbol: currentUser.currencySymbol,
-          major: currentUser.major,
-          graduationYear: currentUser.graduationYear,
-        });
-        if (synced) {
-          const profile: StudentProfile = {
-            id: fbUser.uid,
-            name: synced.displayName || fbUser.displayName || 'Campus Student',
-            username: (fbUser.email || 'student').split('@')[0],
-            avatar: synced.avatar || fbUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-            college: synced.school || synced.college || '',
-            school: synced.school || synced.college || '',
-            country: synced.country || '',
-            state: synced.state || '',
-            currencyCode: synced.currencyCode || 'USD',
-            currencySymbol: synced.currencySymbol || '$',
-            major: synced.major || '',
-            graduationYear: synced.graduationYear || '2026',
-            karma: synced.karma || 50,
-            badges: synced.badges || ['Verified Student', 'Google Authenticated'],
-            verifiedStudent: true,
-          };
-          setCurrentUser(profile);
-          localStorage.setItem('askcampus_user_v2', JSON.stringify(profile));
+    let mounted = true;
+    const applyAuthenticatedUser = async (fbUser: any) => {
+      const synced = await syncUserProfile(fbUser, {
+        college: currentUser.college,
+        school: currentUser.school,
+        country: currentUser.country,
+        state: currentUser.state,
+        currencyCode: currentUser.currencyCode,
+        currencySymbol: currentUser.currencySymbol,
+        major: currentUser.major,
+        graduationYear: currentUser.graduationYear,
+      });
+      if (!mounted) return;
+      const profileData = synced || {};
+      const profile: StudentProfile = {
+        id: fbUser.uid,
+        name: profileData.displayName || fbUser.displayName || 'Campus Student',
+        username: (fbUser.email || 'student').split('@')[0],
+        avatar: profileData.avatar || fbUser.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+        college: profileData.school || profileData.college || '',
+        school: profileData.school || profileData.college || '',
+        country: profileData.country || '',
+        state: profileData.state || '',
+        currencyCode: profileData.currencyCode || 'USD',
+        currencySymbol: profileData.currencySymbol || '$',
+        major: profileData.major || '',
+        graduationYear: profileData.graduationYear || '2026',
+        karma: profileData.karma || 50,
+        badges: profileData.badges || ['Verified Student', 'Google Authenticated'],
+        verifiedStudent: true,
+      };
+      setCurrentUser(profile);
+      localStorage.setItem('askcampus_user_v2', JSON.stringify(profile));
+      localStorage.setItem('askcampus_entered', 'true');
+      setAuthRedirectError(null);
 
-          // If the authenticated Google user hasn't set their country and school, prompt them immediately
-          if (!profile.country || !profile.school) {
-            setShowWelcomeLanding(false);
-            setShowGoogleAuthModal(false);
-            setShowOnboardingModal(true);
-          } else {
-            setSelectedCampus(profile.school);
-            setShowWelcomeLanding(false);
-            setShowGoogleAuthModal(false);
-          }
-        }
+      if (!profile.country || !profile.school) {
+        setShowWelcomeLanding(false);
+        setShowGoogleAuthModal(false);
+        setShowOnboardingModal(true);
+      } else {
+        setSelectedCampus(profile.school);
+        setShowWelcomeLanding(false);
+        setShowGoogleAuthModal(false);
+      }
+    };
+
+    completeGoogleRedirectSignIn().then((res) => {
+      if (!mounted) return;
+      if (res.user) {
+        applyAuthenticatedUser(res.user);
+      } else if (res.redirectLost) {
+        setAuthRedirectError(
+          'Your browser blocked third-party redirect session storage. Please tap "Sign Up / Sign In with Google" above using the popup option.'
+        );
+        setShowGoogleAuthModal(true);
+      } else if (res.errorCode) {
+        setAuthRedirectError(`Google redirect sign-in failed (${res.errorCode}). Please try the popup button above.`);
+        setShowGoogleAuthModal(true);
       }
     });
-    return () => unsubscribe();
+
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
+      if (fbUser) {
+        await applyAuthenticatedUser(fbUser);
+      }
+    });
+    return () => {
+      mounted = false;
+      unsubscribe();
+    };
   }, []);
 
   const showToast = (msg: string) => {
@@ -879,9 +903,11 @@ export default function App() {
         {showGoogleAuthModal && (
           <GoogleAuthModal
             currentUser={currentUser}
+            initialError={authRedirectError}
             setCurrentUser={(user) => {
               setCurrentUser(user);
               setShowGoogleAuthModal(false);
+              setAuthRedirectError(null);
               if (!user.country || !user.school) {
                 setShowWelcomeLanding(false);
                 setShowOnboardingModal(true);
@@ -896,7 +922,10 @@ export default function App() {
               setShowGoogleAuthModal(false);
               setShowOnboardingModal(true);
             }}
-            onClose={() => setShowGoogleAuthModal(false)}
+            onClose={() => {
+              setShowGoogleAuthModal(false);
+              setAuthRedirectError(null);
+            }}
             onOpenDataManagement={() => {
               setShowWelcomeLanding(false);
               setShowGoogleAuthModal(false);
@@ -1731,15 +1760,20 @@ export default function App() {
     {showGoogleAuthModal && (
       <GoogleAuthModal
         currentUser={currentUser}
+        initialError={authRedirectError}
         setCurrentUser={(u) => {
           setCurrentUser(u);
           setShowGoogleAuthModal(false);
+          setAuthRedirectError(null);
           if (!u.country || !u.school) {
             setShowOnboardingModal(true);
           }
         }}
         onRequireOnboarding={() => setShowOnboardingModal(true)}
-        onClose={() => setShowGoogleAuthModal(false)}
+        onClose={() => {
+          setShowGoogleAuthModal(false);
+          setAuthRedirectError(null);
+        }}
         onOpenDataManagement={() => setCurrentTab('profile')}
       />
     )}
