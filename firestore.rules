@@ -1,0 +1,267 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidUserProfile(data) {
+      return data.keys().hasAll(['uid', 'email', 'displayName'])
+        && data.keys().hasOnly([
+          'uid', 'email', 'displayName', 'username', 'avatar',
+          'college', 'school', 'country', 'state',
+          'currencyCode', 'currencySymbol', 'major', 'graduationYear',
+          'karma', 'badges', 'verifiedStudent', 'createdAt', 'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.email is string && data.email.size() <= 200
+        && data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 120
+        && (!('username' in data) || (data.username is string && data.username.size() <= 100))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 1000))
+        && (!('college' in data) || (data.college is string && data.college.size() <= 200))
+        && (!('school' in data) || (data.school is string && data.school.size() <= 200))
+        && (!('country' in data) || (data.country is string && data.country.size() <= 100))
+        && (!('state' in data) || (data.state is string && data.state.size() <= 100))
+        && (!('currencyCode' in data) || (data.currencyCode is string && data.currencyCode.size() <= 10))
+        && (!('currencySymbol' in data) || (data.currencySymbol is string && data.currencySymbol.size() <= 10))
+        && (!('major' in data) || (data.major is string && data.major.size() <= 120))
+        && (!('graduationYear' in data) || (data.graduationYear is string && data.graduationYear.size() <= 10))
+        && (!('karma' in data) || (data.karma is number && data.karma >= 0 && data.karma <= 100000))
+        && (!('badges' in data) || (data.badges is list && data.badges.size() <= 10))
+        && (!('verifiedStudent' in data) || data.verifiedStudent is bool)
+        && (!('createdAt' in data) || (data.createdAt is string && data.createdAt.size() <= 50))
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    function isValidCampusPeer(data) {
+      return data.keys().hasAll(['uid', 'displayName', 'school', 'country'])
+        && data.keys().hasOnly([
+          'uid', 'displayName', 'username', 'avatar',
+          'college', 'school', 'country', 'state',
+          'currencyCode', 'currencySymbol', 'major', 'graduationYear',
+          'karma', 'badges', 'verifiedStudent', 'updatedAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.displayName is string && data.displayName.size() > 0 && data.displayName.size() <= 120
+        && data.school is string && data.school.size() > 0 && data.school.size() <= 200
+        && data.country is string && data.country.size() > 0 && data.country.size() <= 100
+        && (!('username' in data) || (data.username is string && data.username.size() <= 100))
+        && (!('avatar' in data) || (data.avatar is string && data.avatar.size() <= 1000))
+        && (!('college' in data) || (data.college is string && data.college.size() <= 200))
+        && (!('state' in data) || (data.state is string && data.state.size() <= 100))
+        && (!('currencyCode' in data) || (data.currencyCode is string && data.currencyCode.size() <= 10))
+        && (!('currencySymbol' in data) || (data.currencySymbol is string && data.currencySymbol.size() <= 10))
+        && (!('major' in data) || (data.major is string && data.major.size() <= 120))
+        && (!('graduationYear' in data) || (data.graduationYear is string && data.graduationYear.size() <= 10))
+        && (!('karma' in data) || (data.karma is number && data.karma >= 0 && data.karma <= 100000))
+        && (!('badges' in data) || (data.badges is list && data.badges.size() <= 10))
+        && (!('verifiedStudent' in data) || data.verifiedStudent is bool)
+        && (!('updatedAt' in data) || (data.updatedAt is string && data.updatedAt.size() <= 50));
+    }
+
+    function isValidQuestion(data) {
+      return data.keys().hasAll(['id', 'title', 'body', 'courseCode', 'authorId'])
+        && data.keys().hasOnly([
+          'id', 'title', 'body', 'courseCode', 'category', 'tags',
+          'urgency', 'campus', 'authorId', 'authorName', 'authorAvatar',
+          'upvotes', 'downvotes', 'views', 'answersCount', 'acceptedAnswerId', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 300
+        && data.body is string && data.body.size() > 0 && data.body.size() <= 10000
+        && data.courseCode is string && data.courseCode.size() > 0 && data.courseCode.size() <= 40
+        && data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128
+        && (!('tags' in data) || (data.tags is list && data.tags.size() <= 10))
+        && (!('upvotes' in data) || (data.upvotes is number && data.upvotes >= 0))
+        && (!('downvotes' in data) || (data.downvotes is number && data.downvotes >= 0))
+        && (!('views' in data) || (data.views is number && data.views >= 0))
+        && (!('answersCount' in data) || (data.answersCount is number && data.answersCount >= 0));
+    }
+
+    function isValidAnswer(data) {
+      return data.keys().hasAll(['id', 'questionId', 'body', 'authorId'])
+        && data.keys().hasOnly([
+          'id', 'questionId', 'body', 'authorId', 'authorName', 'authorAvatar',
+          'isAccepted', 'isTAOrTutor', 'upvotes', 'downvotes', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.questionId)
+        && data.body is string && data.body.size() > 0 && data.body.size() <= 10000
+        && data.authorId is string && data.authorId.size() > 0 && data.authorId.size() <= 128;
+    }
+
+    function isValidMarketplaceItem(data) {
+      return data.keys().hasAll(['id', 'title', 'price', 'condition', 'sellerId'])
+        && data.keys().hasOnly([
+          'id', 'title', 'description', 'category', 'courseCode',
+          'price', 'originalPrice', 'condition', 'images',
+          'sellerId', 'sellerName', 'sellerAvatar', 'campus',
+          'meetupLocation', 'isNegotiable', 'status', 'savesCount', 'createdAt'
+        ])
+        && isValidId(data.id)
+        && data.title is string && data.title.size() > 0 && data.title.size() <= 200
+        && data.price is number && data.price >= 0 && data.price <= 10000000
+        && data.condition is string && data.condition.size() > 0 && data.condition.size() <= 50
+        && data.sellerId is string && data.sellerId.size() > 0 && data.sellerId.size() <= 128
+        && (!('description' in data) || (data.description is string && data.description.size() <= 5000))
+        && (!('images' in data) || (data.images is list && data.images.size() <= 8));
+    }
+
+    function isValidConversation(data) {
+      return data.keys().hasAll(['id', 'itemId', 'buyerId', 'sellerId'])
+        && data.keys().hasOnly([
+          'id', 'itemId', 'itemTitle', 'itemPrice', 'itemImage',
+          'buyerId', 'sellerId', 'lastMessage', 'lastMessageTime', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.itemId)
+        && data.buyerId is string && data.buyerId.size() > 0 && data.buyerId.size() <= 128
+        && data.sellerId is string && data.sellerId.size() > 0 && data.sellerId.size() <= 128
+        && (!('lastMessage' in data) || (data.lastMessage is string && data.lastMessage.size() <= 2000));
+    }
+
+    // Private User Profiles (contains email PII — strictly owner-only)
+    match /users/{userId} {
+      allow get: if isOwner(userId) && isValidId(userId);
+      allow list: if isOwner(userId);
+      allow create: if isOwner(userId) && isEmailVerified() && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && (!('karma' in incoming()) || incoming().karma <= 50);
+      allow update: if isOwner(userId) && isEmailVerified() && isValidId(userId)
+        && isValidUserProfile(incoming())
+        && incoming().uid == existing().uid
+        && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'username', 'avatar', 'college', 'school',
+          'country', 'state', 'currencyCode', 'currencySymbol',
+          'major', 'graduationYear', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+
+    // Non-PII Campus Colleague Directory (no email/phone/address)
+    match /campus_peers/{userId} {
+      allow get: if isSignedIn() && isValidId(userId);
+      allow list: if isSignedIn() && resource.data.school is string;
+      allow create: if isOwner(userId) && isEmailVerified() && isValidId(userId)
+        && isValidCampusPeer(incoming());
+      allow update: if isOwner(userId) && isEmailVerified() && isValidId(userId)
+        && isValidCampusPeer(incoming())
+        && incoming().uid == existing().uid
+        && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName', 'username', 'avatar', 'college', 'school',
+          'country', 'state', 'currencyCode', 'currencySymbol',
+          'major', 'graduationYear', 'badges', 'verifiedStudent', 'updatedAt'
+        ]);
+      allow delete: if isOwner(userId) && isValidId(userId);
+    }
+
+    // Academic Questions
+    match /questions/{questionId} {
+      allow get: if isSignedIn() && isValidId(questionId);
+      allow list: if isSignedIn() && resource.data.authorId is string;
+      allow create: if isSignedIn() && isEmailVerified() && isValidId(questionId)
+        && incoming().authorId == request.auth.uid
+        && isValidQuestion(incoming());
+      allow update: if isSignedIn() && isEmailVerified() && isValidId(questionId)
+        && isValidQuestion(incoming())
+        && incoming().authorId == existing().authorId
+        && incoming().id == existing().id
+        && (
+          (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'body', 'courseCode', 'category', 'tags', 'urgency', 'acceptedAnswerId'
+          ])) ||
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'upvotes', 'downvotes', 'views', 'answersCount'
+          ])
+        );
+      allow delete: if isSignedIn() && isValidId(questionId) && existing().authorId == request.auth.uid;
+
+      // Answers subcollection
+      match /answers/{answerId} {
+        allow get: if isSignedIn() && isValidId(questionId) && isValidId(answerId);
+        allow list: if isSignedIn() && resource.data.authorId is string;
+        allow create: if isSignedIn() && isEmailVerified() && isValidId(questionId) && isValidId(answerId)
+          && incoming().authorId == request.auth.uid
+          && isValidAnswer(incoming());
+        allow update: if isSignedIn() && isEmailVerified() && isValidId(questionId) && isValidId(answerId)
+          && isValidAnswer(incoming())
+          && incoming().authorId == existing().authorId
+          && incoming().questionId == existing().questionId
+          && (
+            (existing().authorId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly(['body'])) ||
+            incoming().diff(existing()).affectedKeys().hasOnly(['upvotes', 'downvotes', 'isAccepted'])
+          );
+        allow delete: if isSignedIn() && isValidId(questionId) && isValidId(answerId) && existing().authorId == request.auth.uid;
+      }
+    }
+
+    // Marketplace Items
+    match /marketplace/{itemId} {
+      allow get: if isSignedIn() && isValidId(itemId);
+      allow list: if isSignedIn() && resource.data.sellerId is string;
+      allow create: if isSignedIn() && isEmailVerified() && isValidId(itemId)
+        && incoming().sellerId == request.auth.uid
+        && isValidMarketplaceItem(incoming());
+      allow update: if isSignedIn() && isEmailVerified() && isValidId(itemId)
+        && isValidMarketplaceItem(incoming())
+        && incoming().sellerId == existing().sellerId
+        && incoming().id == existing().id
+        && (
+          (existing().sellerId == request.auth.uid && incoming().diff(existing()).affectedKeys().hasOnly([
+            'title', 'description', 'category', 'courseCode', 'price', 'originalPrice',
+            'condition', 'images', 'meetupLocation', 'isNegotiable', 'status'
+          ])) ||
+          incoming().diff(existing()).affectedKeys().hasOnly(['savesCount'])
+        );
+      allow delete: if isSignedIn() && isValidId(itemId) && existing().sellerId == request.auth.uid;
+    }
+
+    // Conversations / Direct Messages (strictly buyer & seller only)
+    match /conversations/{conversationId} {
+      allow get: if isSignedIn() && isValidId(conversationId) && (
+        existing().buyerId == request.auth.uid || existing().sellerId == request.auth.uid
+      );
+      allow list: if isSignedIn() && (
+        resource.data.buyerId == request.auth.uid || resource.data.sellerId == request.auth.uid
+      );
+      allow create: if isSignedIn() && isEmailVerified() && isValidId(conversationId)
+        && (incoming().buyerId == request.auth.uid || incoming().sellerId == request.auth.uid)
+        && isValidConversation(incoming());
+      allow update: if isSignedIn() && isEmailVerified() && isValidId(conversationId)
+        && (existing().buyerId == request.auth.uid || existing().sellerId == request.auth.uid)
+        && isValidConversation(incoming())
+        && incoming().buyerId == existing().buyerId
+        && incoming().sellerId == existing().sellerId
+        && incoming().itemId == existing().itemId
+        && incoming().diff(existing()).affectedKeys().hasOnly(['lastMessage', 'lastMessageTime', 'updatedAt']);
+      allow delete: if false;
+    }
+  }
+}

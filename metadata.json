@@ -1,0 +1,6 @@
+{
+  "name": "AskCampus",
+  "description": "The all-in-one university student platform: ask academic questions, get peer answers, and buy or sell textbooks, gear, and school materials in the campus marketplace.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
