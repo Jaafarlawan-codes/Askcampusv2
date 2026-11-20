@@ -70,13 +70,20 @@ import { GoogleAuthModal } from './components/GoogleAuthModal';
 import { UserProfileView } from './components/UserProfileView';
 import { OnboardingModal } from './components/OnboardingModal';
 import { SUPPORTED_COUNTRIES } from './data/campusLocations';
+import {
+  resolveRouteFromPath,
+  buildPathForState,
+  applySeoMetadata,
+  ParsedAppRoute,
+} from './data/seoRoutes';
 import { triggerConfetti, formatPrice } from './utils/helpers';
 import { auth, syncUserProfile, getRegisteredUsers, updateUserFirestoreProfile, logOut, completeGoogleRedirectSignIn } from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
+  const initialRoute = typeof window !== 'undefined' ? resolveRouteFromPath(window.location.pathname) : resolveRouteFromPath('/');
   // Navigation & Campus filter
-  const [currentTab, setCurrentTab] = useState<'questions' | 'marketplace' | 'studygroups' | 'copilot' | 'saved' | 'profile'>('questions');
+  const [currentTab, setCurrentTab] = useState<'questions' | 'marketplace' | 'studygroups' | 'copilot' | 'saved' | 'profile'>(initialRoute.tab);
   const [currentUser, setCurrentUser] = useState<StudentProfile>(() => {
     const saved = localStorage.getItem('askcampus_user_v2');
     if (saved) {
@@ -204,15 +211,49 @@ export default function App() {
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   // Filters for Q&A
-  const [questionCategory, setQuestionCategory] = useState<string>('All Subjects');
+  const [questionCategory, setQuestionCategory] = useState<string>(initialRoute.questionCategory || 'All Subjects');
   const [questionSort, setQuestionSort] = useState<'trending' | 'latest' | 'unanswered' | 'urgent'>('trending');
 
   // Filters & Tabs for Marketplace
   const [marketView, setMarketView] = useState<'browse' | 'my_receipts' | 'seller_receipts'>('browse');
-  const [marketCategory, setMarketCategory] = useState<string>('all');
+  const [marketCategory, setMarketCategory] = useState<string>(initialRoute.marketCategory || 'all');
   const [marketCondition, setMarketCondition] = useState<string>('all');
   const [marketSort, setMarketSort] = useState<'newest' | 'price_asc' | 'price_desc' | 'savings'>('newest');
   const [onlyNegotiable, setOnlyNegotiable] = useState<boolean>(false);
+  const [landingRoute, setLandingRoute] = useState<ParsedAppRoute>(initialRoute);
+
+  // Keep page SEO metadata and URL path synced with active section/category
+  useEffect(() => {
+    const activeSeo = showWelcomeLanding
+      ? landingRoute
+      : buildPathForState(currentTab, questionCategory, marketCategory);
+    applySeoMetadata(activeSeo);
+  }, [showWelcomeLanding, landingRoute, currentTab, questionCategory, marketCategory]);
+
+  // Listen to browser back/forward navigation for clean category URLs
+  useEffect(() => {
+    const handlePopState = () => {
+      const parsed = resolveRouteFromPath(window.location.pathname);
+      setLandingRoute(parsed);
+      setCurrentTab(parsed.tab);
+      if (parsed.questionCategory) setQuestionCategory(parsed.questionCategory);
+      if (parsed.marketCategory) setMarketCategory(parsed.marketCategory);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const handleNavigateRoute = (path: string) => {
+    const parsed = resolveRouteFromPath(path);
+    setLandingRoute(parsed);
+    setCurrentTab(parsed.tab);
+    if (parsed.questionCategory) setQuestionCategory(parsed.questionCategory);
+    if (parsed.marketCategory) setMarketCategory(parsed.marketCategory);
+    applySeoMetadata(parsed);
+    if (typeof window !== 'undefined' && window.location.pathname !== parsed.canonicalPath) {
+      window.history.pushState({}, '', parsed.canonicalPath);
+    }
+  };
 
   // Sync to LocalStorage
   useEffect(() => {
@@ -885,6 +926,8 @@ export default function App() {
         <WelcomeLandingPage
           selectedCampus={selectedCampus}
           setSelectedCampus={setSelectedCampus}
+          activeRoute={landingRoute}
+          onNavigateRoute={handleNavigateRoute}
           onGetStarted={() => {
             setShowGoogleAuthModal(true);
           }}
