@@ -160,3 +160,37 @@ export interface StudyGroup {
   tags: string[];
   host: StudentProfile;
 }
+
+export interface SellerReview {
+  id: string;
+  sellerId: string;
+  sellerName: string;
+  reviewerId: string;
+  reviewerName: string;
+  reviewerAvatar: string;
+  itemId?: string;
+  itemTitle?: string;
+  orderId?: string;
+  rating: number;
+  comment: string;
+  tags: string[];
+  campus: string;
+  verifiedPurchase?: boolean;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export interface SellerReputationStats {
+  sellerId: string;
+  seller: StudentProfile;
+  averageRating: number;
+  reviewsCount: number;
+  reputationRate: number;
+  recommendationScore: number;
+  positiveTags: string[];
+  completedSales: number;
+  activeListings: number;
+  tier: 'Top Recommended' | 'Highly Rated' | 'Trusted Peer' | 'New Seller';
+  isRecommended: boolean;
+}
+

@@ -31,7 +31,8 @@ import {
   ArrowRight,
   Globe2,
   GraduationCap,
-  X
+  X,
+  Star
 } from 'lucide-react';
 import { 
   Question, 
@@ -40,7 +41,8 @@ import {
   Conversation, 
   StudyGroup, 
   MarketplaceCategory,
-  MarketplaceOrder 
+  MarketplaceOrder,
+  SellerReview
 } from './types';
 import { 
   INITIAL_QUESTIONS, 
@@ -60,6 +62,7 @@ import { CreateListingModal } from './components/CreateListingModal';
 import { MarketplaceChatDrawer } from './components/MarketplaceChatDrawer';
 import { PaymentReceiptModal } from './components/PaymentReceiptModal';
 import { OrderReceiptDetailModal } from './components/OrderReceiptDetailModal';
+import { RateSellerModal } from './components/RateSellerModal';
 import { AICopilotView } from './components/AICopilotView';
 import { StudyGroupsView } from './components/StudyGroupsView';
 import { WelcomeLandingPage } from './components/WelcomeLandingPage';
@@ -77,7 +80,17 @@ import {
   ParsedAppRoute,
 } from './data/seoRoutes';
 import { triggerConfetti, formatPrice } from './utils/helpers';
-import { auth, syncUserProfile, getRegisteredUsers, updateUserFirestoreProfile, logOut, completeGoogleRedirectSignIn } from './firebase';
+import { buildSellerReputationMap, getRecommendedSellers } from './utils/reputation';
+import {
+  auth,
+  syncUserProfile,
+  getRegisteredUsers,
+  updateUserFirestoreProfile,
+  logOut,
+  completeGoogleRedirectSignIn,
+  submitSellerReviewToFirestore,
+  subscribeSellerReviews,
+} from './firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 
 export default function App() {
@@ -199,12 +212,30 @@ export default function App() {
     return INITIAL_STUDY_GROUPS;
   });
 
+  const [sellerReviews, setSellerReviews] = useState<SellerReview[]>(() => {
+    const saved = localStorage.getItem('askcampus_seller_reviews');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) return parsed;
+      } catch (e) {}
+    }
+    return [];
+  });
+
   // Modals & Drawers
   const [activeQuestion, setActiveQuestion] = useState<Question | null>(null);
   const [activeItem, setActiveItem] = useState<MarketplaceItem | null>(null);
   const [activePurchaseItem, setActivePurchaseItem] = useState<MarketplaceItem | null>(null);
   const [activeOrder, setActiveOrder] = useState<MarketplaceOrder | null>(null);
   const [activeConversation, setActiveConversation] = useState<Conversation | null>(null);
+  const [ratingTarget, setRatingTarget] = useState<{
+    seller: StudentProfile;
+    itemId?: string;
+    itemTitle?: string;
+    orderId?: string;
+    verifiedPurchase?: boolean;
+  } | null>(null);
   const [showAskModal, setShowAskModal] = useState<boolean>(false);
   const [showSellModal, setShowSellModal] = useState<boolean>(false);
   const [showMessagesDrawer, setShowMessagesDrawer] = useState<boolean>(false);
@@ -218,8 +249,9 @@ export default function App() {
   const [marketView, setMarketView] = useState<'browse' | 'my_receipts' | 'seller_receipts'>('browse');
   const [marketCategory, setMarketCategory] = useState<string>(initialRoute.marketCategory || 'all');
   const [marketCondition, setMarketCondition] = useState<string>('all');
-  const [marketSort, setMarketSort] = useState<'newest' | 'price_asc' | 'price_desc' | 'savings'>('newest');
+  const [marketSort, setMarketSort] = useState<'recommended' | 'newest' | 'price_asc' | 'price_desc' | 'savings'>('recommended');
   const [onlyNegotiable, setOnlyNegotiable] = useState<boolean>(false);
+  const [selectedSellerFilter, setSelectedSellerFilter] = useState<string | null>(null);
   const [landingRoute, setLandingRoute] = useState<ParsedAppRoute>(initialRoute);
 
   // Keep page SEO metadata and URL path synced with active section/category
@@ -282,7 +314,11 @@ export default function App() {
     }
   }, [currentUser]);
 
-  // Load real registered colleagues from non-PII campus_peers when authenticated
+  useEffect(() => {
+    localStorage.setItem('askcampus_seller_reviews', JSON.stringify(sellerReviews));
+  }, [sellerReviews]);
+
+  // Load real registered colleagues and seller reputation reviews when authenticated
   useEffect(() => {
     if (!currentUser.id || !currentUser.school) {
       setRegisteredColleagues([]);
@@ -292,6 +328,21 @@ export default function App() {
       setRegisteredColleagues(users);
     });
   }, [currentUser.id, currentUser.school]);
+
+  useEffect(() => {
+    if (!currentUser.id) return;
+    const unsubscribe = subscribeSellerReviews((cloudReviews) => {
+      setSellerReviews((prev) => {
+        const merged = new Map<string, SellerReview>();
+        prev.forEach((r) => merged.set(r.id, r));
+        cloudReviews.forEach((r) => merged.set(r.id, r));
+        return Array.from(merged.values()).sort((a, b) =>
+          (b.createdAt || '').localeCompare(a.createdAt || '')
+        );
+      });
+    });
+    return () => unsubscribe();
+  }, [currentUser.id]);
 
   // Resolve redirect-based Google Auth if returning from OAuth redirect, and listen to Auth state
   useEffect(() => {
@@ -599,6 +650,39 @@ export default function App() {
     showToast('Marketplace listing removed.');
   };
 
+  const handleOpenRateSeller = (
+    seller: StudentProfile,
+    opts?: { itemId?: string; itemTitle?: string; orderId?: string; verifiedPurchase?: boolean }
+  ) => {
+    if (!currentUser.id || !currentUser.name) {
+      showToast('Please sign in with Google to rate a seller.');
+      setShowGoogleAuthModal(true);
+      return;
+    }
+    if (seller.id === currentUser.id) {
+      showToast('You cannot rate your own seller account.');
+      return;
+    }
+    setRatingTarget({
+      seller,
+      itemId: opts?.itemId,
+      itemTitle: opts?.itemTitle,
+      orderId: opts?.orderId,
+      verifiedPurchase: opts?.verifiedPurchase,
+    });
+  };
+
+  const handleSubmitSellerReview = async (newReview: SellerReview) => {
+    setSellerReviews((prev) => [newReview, ...prev.filter((r) => r.id !== newReview.id)]);
+    try {
+      await submitSellerReviewToFirestore(newReview);
+    } catch (err) {
+      console.warn('Firestore seller_reviews write warning:', err);
+    }
+    triggerConfetti();
+    showToast(`Rated ${newReview.sellerName} ${newReview.rating}/5 stars. Reputation updated.`);
+  };
+
   // -------------------------
   // Direct Bank Transfer & Receipt Handlers
   // -------------------------
@@ -857,6 +941,19 @@ export default function App() {
     return 0;
   });
 
+  const sellerReputationMap = buildSellerReputationMap(
+    marketplaceItems,
+    sellerReviews,
+    orders,
+    registeredColleagues,
+    currentUser
+  );
+
+  const recommendedSellers = getRecommendedSellers(
+    sellerReputationMap,
+    filterMySchoolOnly && currentUser.school ? currentUser.school : undefined
+  );
+
   const filteredMarketplaceItems = marketplaceItems.filter((item) => {
     // School Colleague filter
     if (filterMySchoolOnly && currentUser.school) {
@@ -868,6 +965,10 @@ export default function App() {
         return false;
       }
     } else if (selectedCampus !== 'All Campuses' && item.campus !== selectedCampus) {
+      return false;
+    }
+    // Optional seller filter
+    if (selectedSellerFilter && item.seller.id !== selectedSellerFilter) {
       return false;
     }
     // Category filter
@@ -896,6 +997,12 @@ export default function App() {
     }
     return true;
   }).sort((a, b) => {
+    if (marketSort === 'recommended') {
+      const scoreA = sellerReputationMap[a.seller.id]?.recommendationScore || 0;
+      const scoreB = sellerReputationMap[b.seller.id]?.recommendationScore || 0;
+      if (scoreB !== scoreA) return scoreB - scoreA;
+      return b.id.localeCompare(a.id);
+    }
     if (marketSort === 'newest') return b.id.localeCompare(a.id);
     if (marketSort === 'price_asc') return a.price - b.price;
     if (marketSort === 'price_desc') return b.price - a.price;
@@ -1316,6 +1423,7 @@ export default function App() {
                       onChange={(e) => setMarketSort(e.target.value as any)}
                       className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 font-semibold text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-500/20"
                     >
+                      <option value="recommended">Most Recommended Sellers</option>
                       <option value="newest">Newest First</option>
                       <option value="price_asc">Price: Low to High</option>
                       <option value="price_desc">Price: High to Low</option>
@@ -1333,6 +1441,110 @@ export default function App() {
                     </label>
                   </div>
                 </div>
+
+                {/* Most Recommended Campus Sellers Section */}
+                {recommendedSellers.length > 0 && (
+                  <section aria-label="Most Recommended Sellers" className="mb-6 bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5">
+                      <div>
+                        <h2 className="text-sm font-bold text-slate-900">
+                          Most Recommended Sellers
+                        </h2>
+                        <p className="text-xs text-slate-500">
+                          Ranked highest by verified student ratings, reputation rate, and completed handoffs
+                        </p>
+                      </div>
+                      {selectedSellerFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedSellerFilter(null)}
+                          className="text-xs font-semibold text-blue-600 hover:text-blue-800 cursor-pointer whitespace-nowrap"
+                        >
+                          Show All Sellers
+                        </button>
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                      {recommendedSellers.slice(0, 4).map((stat, idx) => {
+                        const isFiltered = selectedSellerFilter === stat.sellerId;
+                        return (
+                          <div
+                            key={stat.sellerId}
+                            className={`p-3.5 rounded-xl border transition-colors flex flex-col justify-between gap-3 ${
+                              isFiltered
+                                ? 'bg-blue-50/70 border-blue-400'
+                                : 'bg-slate-50/70 border-slate-200/80 hover:border-slate-300'
+                            }`}
+                          >
+                            <div className="flex items-start gap-2.5">
+                              <img
+                                src={stat.seller.avatar}
+                                alt={stat.seller.name}
+                                referrerPolicy="no-referrer"
+                                className="w-10 h-10 rounded-xl object-cover border border-slate-200 shrink-0"
+                              />
+                              <div className="min-w-0 flex-1">
+                                <div className="flex items-center justify-between gap-1">
+                                  <span className="text-xs font-bold text-slate-900 truncate">
+                                    {stat.seller.name}
+                                  </span>
+                                  <span className="text-[11px] font-bold text-emerald-700 tabular-nums shrink-0">
+                                    #{idx + 1}
+                                  </span>
+                                </div>
+                                <div className="text-[11px] text-slate-500 truncate">
+                                  {stat.seller.school || stat.seller.college}
+                                </div>
+                                <div className="mt-1 flex items-center gap-1.5 text-[11px] tabular-nums">
+                                  <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
+                                  <span className="font-bold text-slate-900">
+                                    {stat.reviewsCount > 0 ? stat.averageRating.toFixed(1) : 'New'}
+                                  </span>
+                                  {stat.reputationRate > 0 && (
+                                    <>
+                                      <span className="text-slate-300">·</span>
+                                      <span className="font-semibold text-emerald-700">
+                                        {stat.reputationRate}% rep
+                                      </span>
+                                    </>
+                                  )}
+                                  <span className="text-slate-300">·</span>
+                                  <span className="text-slate-500">
+                                    {stat.reviewsCount} {stat.reviewsCount === 1 ? 'review' : 'reviews'}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center justify-between gap-2 pt-2 border-t border-slate-200/70 text-[11px]">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedSellerFilter((prev) =>
+                                    prev === stat.sellerId ? null : stat.sellerId
+                                  )
+                                }
+                                className="font-semibold text-blue-600 hover:text-blue-800 cursor-pointer whitespace-nowrap"
+                              >
+                                {isFiltered ? 'Clear Filter' : `View Listings (${stat.activeListings})`}
+                              </button>
+                              {stat.sellerId !== currentUser.id && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenRateSeller(stat.seller)}
+                                  className="font-semibold text-slate-600 hover:text-slate-900 cursor-pointer whitespace-nowrap"
+                                >
+                                  Rate Seller
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+                )}
 
                 {/* Marketplace Grid or Clean Empty State */}
                 {filteredMarketplaceItems.length === 0 ? (
@@ -1377,6 +1589,7 @@ export default function App() {
                         item={item}
                         userCurrencySymbol={currentUser.currencySymbol || '$'}
                         currentUserSchool={currentUser.school || currentUser.college}
+                        sellerReputation={sellerReputationMap[item.seller.id]}
                         onSelect={(it) => setActiveItem(it)}
                         onToggleSave={handleToggleSaveItem}
                         onQuickChat={handleStartChat}
@@ -1487,6 +1700,20 @@ export default function App() {
                             >
                               <Eye className="w-3.5 h-3.5" />
                               <span>View Receipt Proof</span>
+                            </button>
+                            <button
+                              onClick={() =>
+                                handleOpenRateSeller(order.seller, {
+                                  itemId: order.itemId,
+                                  itemTitle: order.itemTitle,
+                                  orderId: order.id,
+                                  verifiedPurchase: order.status === 'confirmed',
+                                })
+                              }
+                              className="px-3 py-2 bg-amber-50 hover:bg-amber-100 text-amber-800 font-bold text-xs rounded-xl transition-colors cursor-pointer flex items-center gap-1 whitespace-nowrap"
+                            >
+                              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                              <span>Rate Seller</span>
                             </button>
                             <button
                               onClick={() => {
@@ -1684,6 +1911,7 @@ export default function App() {
                         item={item}
                         userCurrencySymbol={currentUser.currencySymbol || '$'}
                         currentUserSchool={currentUser.school || currentUser.college}
+                        sellerReputation={sellerReputationMap[item.seller.id]}
                         onSelect={(it) => setActiveItem(it)}
                         onToggleSave={handleToggleSaveItem}
                         onQuickChat={handleStartChat}
@@ -1732,6 +1960,8 @@ export default function App() {
             marketplaceItems={marketplaceItems}
             conversations={conversations}
             registeredColleagues={registeredColleagues}
+            sellerReputation={sellerReputationMap[currentUser.id]}
+            receivedReviews={sellerReviews.filter((r) => r.sellerId === currentUser.id)}
             onOpenGoogleAuth={() => setShowGoogleAuthModal(true)}
             onSelectQuestion={(q) => setActiveQuestion(q)}
             onSelectItem={(i) => setActiveItem(i)}
@@ -1851,12 +2081,17 @@ export default function App() {
         <MarketplaceDetailModal
           item={activeItem}
           currentUser={currentUser}
+          sellerReputation={sellerReputationMap[activeItem.seller.id]}
+          sellerReviews={sellerReviews.filter((r) => r.sellerId === activeItem.seller.id)}
           onClose={() => setActiveItem(null)}
           onToggleSave={handleToggleSaveItem}
           onStartChat={handleStartChat}
           onUpdateStatus={handleUpdateItemStatus}
           onDeleteItem={handleDeleteItem}
           onInitiatePurchase={handleInitiatePurchase}
+          onRateSeller={(seller, item) =>
+            handleOpenRateSeller(seller, { itemId: item.id, itemTitle: item.title })
+          }
         />
       )}
 
@@ -1902,6 +2137,20 @@ export default function App() {
           onClose={() => setActiveOrder(null)}
           onConfirmOrder={handleConfirmOrder}
           onRejectOrder={handleRejectOrder}
+        />
+      )}
+
+      {/* 7b. Seller Reputation Rating Modal */}
+      {ratingTarget && (
+        <RateSellerModal
+          seller={ratingTarget.seller}
+          currentUser={currentUser}
+          itemId={ratingTarget.itemId}
+          itemTitle={ratingTarget.itemTitle}
+          orderId={ratingTarget.orderId}
+          verifiedPurchase={ratingTarget.verifiedPurchase}
+          onClose={() => setRatingTarget(null)}
+          onSubmitReview={handleSubmitSellerReview}
         />
       )}
 

@@ -1,27 +1,19 @@
 import React, { useState } from 'react';
 import { 
-  User, 
   Award, 
-  ShoppingBag, 
-  MessageSquare, 
-  Heart, 
-  Download, 
-  Trash2, 
   RefreshCw, 
   ShieldCheck, 
-  Edit3, 
   Check, 
   Save, 
-  HardDrive, 
   Database, 
   LogOut,
-  MapPin,
   GraduationCap,
-  Sparkles,
   Globe2,
-  Users
+  Download,
+  Trash2,
+  Star
 } from 'lucide-react';
-import { StudentProfile, Question, MarketplaceItem, Conversation } from '../types';
+import { StudentProfile, Question, MarketplaceItem, Conversation, SellerReputationStats, SellerReview } from '../types';
 import { UNIVERSITIES } from '../data/mockData';
 import { triggerConfetti, formatPrice } from '../utils/helpers';
 
@@ -32,6 +24,8 @@ interface UserProfileViewProps {
   marketplaceItems: MarketplaceItem[];
   conversations: Conversation[];
   registeredColleagues?: StudentProfile[];
+  sellerReputation?: SellerReputationStats;
+  receivedReviews?: SellerReview[];
   onOpenGoogleAuth: () => void;
   onSelectQuestion: (question: Question) => void;
   onSelectItem: (item: MarketplaceItem) => void;
@@ -47,6 +41,8 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
   marketplaceItems,
   conversations,
   registeredColleagues = [],
+  sellerReputation,
+  receivedReviews = [],
   onOpenGoogleAuth,
   onSelectQuestion,
   onSelectItem,
@@ -305,6 +301,47 @@ export const UserProfileView: React.FC<UserProfileViewProps> = ({
                 <div className="text-2xl font-extrabold text-amber-500 tabular-nums">{currentUser.karma}</div>
                 <div className="text-[11px] font-semibold text-slate-500 uppercase tracking-wide mt-1">Karma PTS</div>
               </div>
+            </div>
+
+            {/* Seller Reputation Summary Card */}
+            <div className="p-5 rounded-2xl bg-white border border-slate-200/90 space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Seller Reputation Rate</h3>
+                  <p className="text-xs text-slate-500">
+                    High reputation scores prioritize your listings under Recommended Sellers
+                  </p>
+                </div>
+                <div className="text-right tabular-nums">
+                  <div className="text-xl font-extrabold text-emerald-700">
+                    {sellerReputation && sellerReputation.reviewsCount > 0
+                      ? `${sellerReputation.reputationRate}%`
+                      : 'New'}
+                  </div>
+                  <div className="text-[11px] text-slate-500 flex items-center justify-end gap-1">
+                    <Star className="w-3 h-3 fill-amber-400 text-amber-500" />
+                    <span>
+                      {sellerReputation && sellerReputation.reviewsCount > 0
+                        ? `${sellerReputation.averageRating.toFixed(1)} (${sellerReputation.reviewsCount} reviews)`
+                        : '0 reviews yet'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {receivedReviews.length > 0 && (
+                <div className="pt-3 border-t border-slate-100 space-y-2">
+                  {receivedReviews.slice(0, 3).map((rev) => (
+                    <div key={rev.id} className="text-xs bg-slate-50 p-3 rounded-xl border border-slate-100">
+                      <div className="flex items-center justify-between gap-2 mb-0.5">
+                        <span className="font-semibold text-slate-800">{rev.reviewerName}</span>
+                        <span className="text-amber-600 font-bold tabular-nums">{rev.rating.toFixed(1)} / 5</span>
+                      </div>
+                      {rev.comment && <p className="text-slate-600">{rev.comment}</p>}
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Quick Security & Google Sync status */}

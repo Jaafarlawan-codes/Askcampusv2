@@ -136,6 +136,30 @@
         "updatedAt": { "type": "string" }
       },
       "required": ["id", "itemId", "buyerId", "sellerId"]
+    },
+    "sellerReview": {
+      "title": "Seller Reputation Review",
+      "description": "Buyer review and 1-5 star rating for a campus marketplace seller",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "sellerId": { "type": "string", "maxLength": 128 },
+        "sellerName": { "type": "string", "maxLength": 120 },
+        "reviewerId": { "type": "string", "maxLength": 128 },
+        "reviewerName": { "type": "string", "maxLength": 120 },
+        "reviewerAvatar": { "type": "string", "maxLength": 1000 },
+        "itemId": { "type": "string", "maxLength": 128 },
+        "itemTitle": { "type": "string", "maxLength": 200 },
+        "orderId": { "type": "string", "maxLength": 128 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "maxLength": 600 },
+        "tags": { "type": "array" },
+        "campus": { "type": "string", "maxLength": 200 },
+        "verifiedPurchase": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 50 },
+        "updatedAt": { "type": "string", "maxLength": 50 }
+      },
+      "required": ["id", "sellerId", "reviewerId", "rating", "createdAt"]
     }
   },
   "firestore": {
@@ -162,6 +186,10 @@
     "/conversations/{conversationId}": {
       "schema": { "$ref": "#/entities/conversation" },
       "description": "Direct student negotiations and inquiries"
+    },
+    "/seller_reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/sellerReview" },
+      "description": "Campus marketplace seller reputation ratings and buyer feedback"
     }
   }
 }

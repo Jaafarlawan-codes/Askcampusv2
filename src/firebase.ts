@@ -25,7 +25,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
-import { StudentProfile } from './types';
+import { StudentProfile, SellerReview } from './types';
 
 // Skill Mandated Error Handling
 export enum OperationType {
@@ -367,3 +367,78 @@ export async function getRegisteredUsers(userSchool?: string): Promise<StudentPr
     return [];
   }
 }
+
+export async function submitSellerReviewToFirestore(review: SellerReview): Promise<void> {
+  if (!auth.currentUser) return;
+  const safeId = review.id.replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 128);
+  const path = `seller_reviews/${safeId}`;
+  const sanitizedPayload: Record<string, any> = {
+    id: safeId,
+    sellerId: String(review.sellerId).slice(0, 128),
+    sellerName: String(review.sellerName || 'Campus Seller').slice(0, 120),
+    reviewerId: auth.currentUser.uid,
+    reviewerName: String(review.reviewerName || auth.currentUser.displayName || 'Student').slice(0, 120),
+    reviewerAvatar: String(review.reviewerAvatar || '').slice(0, 1000),
+    rating: Math.max(1, Math.min(5, Math.round(review.rating))),
+    comment: String(review.comment || '').slice(0, 600),
+    tags: Array.isArray(review.tags) ? review.tags.map((t) => String(t).slice(0, 40)).slice(0, 5) : [],
+    campus: String(review.campus || '').slice(0, 200),
+    verifiedPurchase: Boolean(review.verifiedPurchase),
+    createdAt: String(review.createdAt || new Date().toISOString()).slice(0, 50),
+  };
+  if (review.itemId) sanitizedPayload.itemId = String(review.itemId).slice(0, 128);
+  if (review.itemTitle) sanitizedPayload.itemTitle = String(review.itemTitle).slice(0, 200);
+  if (review.orderId) sanitizedPayload.orderId = String(review.orderId).slice(0, 128);
+
+  try {
+    await setDoc(doc(db, 'seller_reviews', safeId), sanitizedPayload);
+  } catch (err) {
+    handleFirestoreError(err, OperationType.CREATE, path);
+  }
+}
+
+export function subscribeSellerReviews(
+  onUpdate: (reviews: SellerReview[]) => void
+): () => void {
+  if (!auth.currentUser) {
+    return () => {};
+  }
+  const reviewsQuery = query(
+    collection(db, 'seller_reviews'),
+    where('sellerId', '>', '')
+  );
+  return onSnapshot(
+    reviewsQuery,
+    (snapshot) => {
+      const list: SellerReview[] = [];
+      snapshot.forEach((d) => {
+        const data = d.data();
+        if (data?.sellerId && typeof data.rating === 'number') {
+          list.push({
+            id: data.id || d.id,
+            sellerId: data.sellerId,
+            sellerName: data.sellerName || 'Campus Seller',
+            reviewerId: data.reviewerId || '',
+            reviewerName: data.reviewerName || 'Verified Student',
+            reviewerAvatar: data.reviewerAvatar || '',
+            itemId: data.itemId,
+            itemTitle: data.itemTitle,
+            orderId: data.orderId,
+            rating: data.rating,
+            comment: data.comment || '',
+            tags: Array.isArray(data.tags) ? data.tags : [],
+            campus: data.campus || '',
+            verifiedPurchase: Boolean(data.verifiedPurchase),
+            createdAt: data.createdAt || '',
+            updatedAt: data.updatedAt,
+          });
+        }
+      });
+      onUpdate(list);
+    },
+    (error) => {
+      handleFirestoreError(error, OperationType.LIST, 'seller_reviews');
+    }
+  );
+}
+

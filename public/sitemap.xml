@@ -2,26 +2,31 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://www.askcampus.online/</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.9</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/study-groups</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/ai-copilot</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
@@ -29,41 +34,49 @@
   <!-- Academic Q&A Subject Categories -->
   <url>
     <loc>https://www.askcampus.online/qa/computer-science</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/mathematics</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/pre-med-biology</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/engineering</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/business-econ</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/physics-chem</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/humanities-law</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/qa/campus-life</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
@@ -71,31 +84,37 @@
   <!-- Campus Marketplace Categories -->
   <url>
     <loc>https://www.askcampus.online/marketplace/textbooks</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace/calculators-tech</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace/lab-kits-gear</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace/past-exams-notes</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace/dorm-living</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.8</priority>
   </url>
   <url>
     <loc>https://www.askcampus.online/marketplace/other-materials</loc>
+    <lastmod>2026-11-21</lastmod>
     <changefreq>daily</changefreq>
     <priority>0.7</priority>
   </url>

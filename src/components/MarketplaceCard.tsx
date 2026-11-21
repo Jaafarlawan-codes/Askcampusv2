@@ -3,18 +3,16 @@ import {
   Heart, 
   MapPin, 
   MessageCircle, 
-  Tag, 
-  CheckCircle,
-  Clock,
-  ArrowRight
+  Star
 } from 'lucide-react';
-import { MarketplaceItem } from '../types';
+import { MarketplaceItem, SellerReputationStats } from '../types';
 import { formatPrice, calculateDiscount, getConditionColor } from '../utils/helpers';
 
 interface MarketplaceCardProps {
   item: MarketplaceItem;
   userCurrencySymbol?: string;
   currentUserSchool?: string;
+  sellerReputation?: SellerReputationStats;
   onSelect: (item: MarketplaceItem) => void;
   onToggleSave: (itemId: string, e: React.MouseEvent) => void;
   onQuickChat: (item: MarketplaceItem, e: React.MouseEvent) => void;
@@ -24,6 +22,7 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
   item,
   userCurrencySymbol = '$',
   currentUserSchool,
+  sellerReputation,
   onSelect,
   onToggleSave,
   onQuickChat,
@@ -142,25 +141,48 @@ export const MarketplaceCard: React.FC<MarketplaceCardProps> = ({
         </div>
       </div>
 
-      {/* Footer / Seller & Chat Button */}
+      {/* Footer / Seller Reputation & Chat Button */}
       <div className="px-4 pb-3.5 pt-0">
         <div className="pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 min-w-0">
             <img
               src={item.seller.avatar}
               alt={item.seller.name}
-              className="w-5 h-5 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
+              referrerPolicy="no-referrer"
+              className="w-6 h-6 rounded-full object-cover ring-1 ring-slate-200 shrink-0"
             />
-            <div className="truncate text-xs">
-              <span className="font-semibold text-slate-800 block truncate leading-tight">{item.seller.name.split(' ')[0]}</span>
-              <span className="text-slate-400 block text-[10px] truncate leading-tight">{item.campus}</span>
+            <div className="min-w-0 text-xs">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="font-semibold text-slate-800 truncate leading-tight">
+                  {item.seller.name.split(' ')[0]}
+                </span>
+                {sellerReputation?.isRecommended && (
+                  <span className="text-[10px] font-bold text-emerald-700 whitespace-nowrap shrink-0">
+                    · Recommended
+                  </span>
+                )}
+              </div>
+              {sellerReputation && sellerReputation.reviewsCount > 0 ? (
+                <div className="flex items-center gap-1 text-[10px] text-slate-500 tabular-nums leading-tight mt-0.5">
+                  <Star className="w-3 h-3 fill-amber-400 text-amber-500 shrink-0" />
+                  <span className="font-semibold text-slate-700">{sellerReputation.averageRating.toFixed(1)}</span>
+                  <span aria-hidden="true">·</span>
+                  <span className="font-semibold text-emerald-700">{sellerReputation.reputationRate}% rep</span>
+                  <span aria-hidden="true">·</span>
+                  <span>({sellerReputation.reviewsCount})</span>
+                </div>
+              ) : (
+                <span className="text-slate-400 block text-[10px] truncate leading-tight mt-0.5">
+                  {item.campus}
+                </span>
+              )}
             </div>
           </div>
 
           <button
             onClick={(e) => onQuickChat(item, e)}
             disabled={isSold}
-            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0"
+            className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-blue-50 hover:bg-blue-600 text-blue-700 hover:text-white text-xs font-bold transition-all cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed shrink-0 whitespace-nowrap"
           >
             <MessageCircle className="w-3.5 h-3.5" />
             <span>Chat</span>
