@@ -322,6 +322,31 @@ export const WelcomeLandingPage: React.FC<WelcomeLandingPageProps> = ({
             </a>
           </div>
         </section>
+
+        {/* Frequently Asked Questions for Students & Search Crawlers */}
+        <section aria-label="Frequently Asked Questions" className="mt-10 rounded-2xl bg-slate-900/50 border border-slate-800/80 p-6">
+          <h2 className="text-sm font-bold text-white mb-4">How AskCampus Works</h2>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5 text-xs leading-relaxed">
+            <div>
+              <h3 className="font-semibold text-slate-100 mb-1">Campus-Scoped Q&amp;A</h3>
+              <p className="text-slate-400">
+                Sign in with Google, pick your university, and ask course-coded questions answered by peers and teaching assistants in your classes.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-100 mb-1">Reputation-Ranked Marketplace</h3>
+              <p className="text-slate-400">
+                Exchange textbooks, calculators, and lab gear in your local currency. Buyers rate sellers 1–5 stars so top-reputation sellers are recommended first.
+              </p>
+            </div>
+            <div>
+              <h3 className="font-semibold text-slate-100 mb-1">Direct Transfers &amp; Safe Meetups</h3>
+              <p className="text-slate-400">
+                Pay zero marketplace commission—upload transfer receipts for seller confirmation and exchange items at safe public spots on campus.
+              </p>
+            </div>
+          </div>
+        </section>
       </main>
 
       {/* Clean Semantic Footer */}

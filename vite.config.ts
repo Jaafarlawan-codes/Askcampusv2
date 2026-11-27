@@ -25,6 +25,21 @@ function buildStaticDirectoryHtml(heading: string, summary: string, activePath: 
     (c) => `<li><a href="${c.path}">${escapeHtml(c.label)}</a> — ${escapeHtml(c.subtitle)}</li>`
   ).join('');
 
+  const sectionFocus = activePath.startsWith('/marketplace')
+    ? `<h2>Verified Campus Marketplace &amp; Recommended Sellers</h2>
+       <p>Students on AskCampus buy and sell textbooks, calculators, lab kits, and dorm supplies directly in their local currency with zero platform commission. Every seller earns a live Reputation Rate (0–100%) and star rating from classmate reviews so top-recommended peers appear first.</p>`
+    : activePath.startsWith('/qa')
+    ? `<h2>Course-Tagged Academic Q&amp;A</h2>
+       <p>Post homework questions tagged with your university course code, receive step-by-step explanations from classmates and teaching assistants, mark accepted solutions, and use the AI Study Copilot for practice breakdowns.</p>`
+    : activePath === '/study-groups'
+    ? `<h2>Campus Study Groups &amp; Exam Prep</h2>
+       <p>Coordinate library room sessions and online study teams by course code with classmates at your own university.</p>`
+    : activePath === '/ai-copilot'
+    ? `<h2>AI Study Copilot &amp; Textbook Price Advisor</h2>
+       <p>Generate structured concept breakdowns, practice questions, and fair local-currency resale appraisals for used textbooks and electronics.</p>`
+    : `<h2>Built for University Classmates Worldwide</h2>
+       <p>AskCampus connects verified students at the same university for course-tagged academic Q&amp;A, study groups, AI study assistance, and a reputation-ranked campus marketplace.</p>`;
+
   return `<main style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:48px 24px;color:#0f172a;line-height:1.6;">
   <header style="margin-bottom:32px;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
     <a href="/" style="font-weight:800;font-size:20px;color:#0f172a;text-decoration:none;">AskCampus</a>
@@ -35,9 +50,14 @@ function buildStaticDirectoryHtml(heading: string, summary: string, activePath: 
       <a href="/ai-copilot">AI Study Copilot</a>
     </nav>
   </header>
-  <h1>${escapeHtml(heading)}</h1>
-  <p>${escapeHtml(summary)}</p>
-  <p style="font-size:13px;color:#475569;">Canonical section: ${escapeHtml(SITE_ORIGIN + activePath)}</p>
+  <article>
+    <h1>${escapeHtml(heading)}</h1>
+    <p>${escapeHtml(summary)}</p>
+    <p style="font-size:13px;color:#475569;">Section URL: ${escapeHtml(SITE_ORIGIN + activePath)}</p>
+    <section style="margin-top:24px;">
+      ${sectionFocus}
+    </section>
+  </article>
   <section style="margin-top:32px;">
     <h2>Academic Q&amp;A Subjects</h2>
     <ul>${qaLinks}</ul>
@@ -45,6 +65,13 @@ function buildStaticDirectoryHtml(heading: string, summary: string, activePath: 
   <section style="margin-top:24px;">
     <h2>Campus Marketplace Categories &amp; Trusted Student Sellers</h2>
     <ul>${marketLinks}</ul>
+  </section>
+  <section style="margin-top:24px;">
+    <h2>Frequently Asked Questions</h2>
+    <h3>How does AskCampus verify classmates?</h3>
+    <p>Students sign in with Google and select their country, university campus, and local currency so Q&amp;A feeds and marketplace listings match peers at the same school.</p>
+    <h3>How are Marketplace sellers ranked?</h3>
+    <p>Buyers submit 1–5 star ratings and feedback tags after purchases. Sellers with high reputation rates and verified handoffs are highlighted under Most Recommended Sellers.</p>
   </section>
 </main>`;
 }
