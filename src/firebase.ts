@@ -23,6 +23,7 @@ import {
   collection,
   query,
   where,
+  limit,
   onSnapshot
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
@@ -533,7 +534,8 @@ export function subscribeSellerReviews(
   }
   const reviewsQuery = query(
     collection(db, 'seller_reviews'),
-    where('sellerId', '>', '')
+    where('rating', 'in', [1, 2, 3, 4, 5]),
+    limit(200)
   );
   return onSnapshot(
     reviewsQuery,

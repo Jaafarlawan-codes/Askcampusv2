@@ -286,7 +286,9 @@ service cloud.firestore {
     // Seller Reputation Reviews (immutable author & sellerId, non-self rating enforced)
     match /seller_reviews/{reviewId} {
       allow get: if isSignedIn() && isValidId(reviewId);
-      allow list: if isSignedIn() && resource.data.sellerId is string;
+      allow list: if isSignedIn()
+        && resource.data.rating in [1, 2, 3, 4, 5]
+        && request.query.limit <= 200;
       allow create: if isSignedIn() && isEmailVerified() && isValidId(reviewId)
         && incoming().reviewerId == request.auth.uid
         && incoming().sellerId != request.auth.uid
