@@ -17,6 +17,7 @@ import {
   getDoc, 
   setDoc, 
   updateDoc,
+  deleteDoc,
   getDocs,
   getDocFromServer,
   collection,
@@ -166,38 +167,100 @@ export async function logOut() {
   }
 }
 
+const DEFAULT_AVATAR = 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80';
+
+const ALLOWED_USER_PROFILE_KEYS = new Set([
+  'uid', 'email', 'displayName', 'username', 'avatar',
+  'college', 'school', 'country', 'state',
+  'currencyCode', 'currencySymbol', 'major', 'graduationYear',
+  'karma', 'badges', 'verifiedStudent', 'createdAt', 'updatedAt',
+]);
+
+const ALLOWED_PEER_KEYS = new Set([
+  'uid', 'displayName', 'username', 'avatar',
+  'college', 'school', 'country', 'state',
+  'currencyCode', 'currencySymbol', 'major', 'graduationYear',
+  'karma', 'badges', 'verifiedStudent', 'updatedAt',
+]);
+
+function clampStr(value: unknown, maxLen: number, fallback = ''): string {
+  const s = typeof value === 'string' ? value : fallback;
+  return s.slice(0, maxLen);
+}
+
+function hasUnknownKeys(docData: Record<string, any>, allowed: Set<string>): boolean {
+  return Object.keys(docData).some((key) => !allowed.has(key));
+}
+
 async function syncCampusPeerDirectory(uid: string, profile: Record<string, any>) {
   if (!uid || !profile.school || !profile.country || profile.school === 'Stanford University') {
+    return;
+  }
+  if (!auth.currentUser || auth.currentUser.uid !== uid || !auth.currentUser.emailVerified) {
     return;
   }
   try {
     const peerRef = doc(db, 'campus_peers', uid);
     const existingPeer = await getDoc(peerRef);
     const editableFields = {
-      displayName: profile.displayName || profile.name || 'Campus Student',
-      username: profile.username || 'student',
-      avatar: profile.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-      college: profile.school || profile.college || '',
-      school: profile.school || profile.college || '',
-      country: profile.country || '',
-      state: profile.state || '',
-      currencyCode: profile.currencyCode || 'USD',
-      currencySymbol: profile.currencySymbol || '$',
-      major: profile.major || '',
-      graduationYear: profile.graduationYear || '2026',
-      updatedAt: new Date().toISOString(),
+      displayName: clampStr(profile.displayName || profile.name, 120, 'Campus Student') || 'Campus Student',
+      username: clampStr(profile.username, 100, 'student') || 'student',
+      avatar: clampStr(profile.avatar, 1000, DEFAULT_AVATAR) || DEFAULT_AVATAR,
+      college: clampStr(profile.school || profile.college, 200),
+      school: clampStr(profile.school || profile.college, 200),
+      country: clampStr(profile.country, 100),
+      state: clampStr(profile.state, 100),
+      currencyCode: clampStr(profile.currencyCode, 10, 'USD') || 'USD',
+      currencySymbol: clampStr(profile.currencySymbol, 10, '$') || '$',
+      major: clampStr(profile.major, 120),
+      graduationYear: clampStr(profile.graduationYear, 10, '2026') || '2026',
+      updatedAt: new Date().toISOString().slice(0, 50),
     };
 
     if (!existingPeer.exists()) {
       await setDoc(peerRef, {
         uid,
         ...editableFields,
-        karma: typeof profile.karma === 'number' ? profile.karma : 50,
+        karma: typeof profile.karma === 'number' ? Math.max(0, Math.min(100000, profile.karma)) : 50,
         badges: Array.isArray(profile.badges) ? profile.badges.slice(0, 10) : ['Verified Student'],
         verifiedStudent: true,
       });
     } else {
-      await updateDoc(peerRef, editableFields);
+      const peerData = existingPeer.data();
+      const needsRewrite =
+        !peerData?.uid ||
+        !peerData?.displayName ||
+        !peerData?.school ||
+        !peerData?.country ||
+        hasUnknownKeys(peerData, ALLOWED_PEER_KEYS);
+
+      if (needsRewrite) {
+        await deleteDoc(peerRef);
+        await setDoc(peerRef, {
+          uid,
+          ...editableFields,
+          karma: typeof peerData?.karma === 'number' ? Math.max(0, Math.min(100000, peerData.karma)) : 50,
+          badges: Array.isArray(peerData?.badges) ? peerData.badges.slice(0, 10) : ['Verified Student'],
+          verifiedStudent: true,
+        });
+      } else {
+        const changed = (
+          peerData.displayName !== editableFields.displayName ||
+          peerData.username !== editableFields.username ||
+          peerData.avatar !== editableFields.avatar ||
+          peerData.college !== editableFields.college ||
+          peerData.school !== editableFields.school ||
+          peerData.country !== editableFields.country ||
+          peerData.state !== editableFields.state ||
+          peerData.currencyCode !== editableFields.currencyCode ||
+          peerData.currencySymbol !== editableFields.currencySymbol ||
+          peerData.major !== editableFields.major ||
+          peerData.graduationYear !== editableFields.graduationYear
+        );
+        if (changed) {
+          await updateDoc(peerRef, editableFields);
+        }
+      }
     }
   } catch (err) {
     console.warn('Non-blocking campus_peers sync warning:', err);
@@ -207,30 +270,31 @@ async function syncCampusPeerDirectory(uid: string, profile: Record<string, any>
 const inFlightSync = new Map<string, Promise<any>>();
 
 function buildFallbackProfile(user: FirebaseUser, additionalData: Partial<StudentProfile> = {}) {
-  const emailUsername = (user.email || 'student').split('@')[0];
+  const emailUsername = clampStr((user.email || 'student').split('@')[0], 100, 'student') || 'student';
+  const now = new Date().toISOString().slice(0, 50);
   return {
     uid: user.uid,
-    email: user.email || '',
-    displayName: user.displayName || 'Campus Student',
-    username: emailUsername,
-    avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
-    college: additionalData.school || additionalData.college || '',
-    school: additionalData.school || additionalData.college || '',
-    country: additionalData.country || '',
-    state: additionalData.state || '',
-    currencyCode: additionalData.currencyCode || '',
-    currencySymbol: additionalData.currencySymbol || '',
-    major: additionalData.major || '',
-    graduationYear: additionalData.graduationYear || '2026',
+    email: clampStr(user.email, 200),
+    displayName: clampStr(additionalData.name || user.displayName, 120, 'Campus Student') || 'Campus Student',
+    username: clampStr(additionalData.username, 100, emailUsername) || emailUsername,
+    avatar: clampStr(additionalData.avatar || user.photoURL, 1000, DEFAULT_AVATAR) || DEFAULT_AVATAR,
+    college: clampStr(additionalData.school || additionalData.college, 200),
+    school: clampStr(additionalData.school || additionalData.college, 200),
+    country: clampStr(additionalData.country, 100),
+    state: clampStr(additionalData.state, 100),
+    currencyCode: clampStr(additionalData.currencyCode, 10),
+    currencySymbol: clampStr(additionalData.currencySymbol, 10),
+    major: clampStr(additionalData.major, 120),
+    graduationYear: clampStr(additionalData.graduationYear, 10, '2026') || '2026',
     karma: 50,
     badges: ['Verified Student'],
     verifiedStudent: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString(),
+    createdAt: now,
+    updatedAt: now,
   };
 }
 
-// User Profile Sync with Firestore (deduplicated & resilient against rule/network hiccups)
+// User Profile Sync with Firestore (deduplicated & schema-strict)
 export async function syncUserProfile(user: FirebaseUser, additionalData: Partial<StudentProfile> = {}) {
   if (!user) return null;
   const existingPromise = inFlightSync.get(user.uid);
@@ -245,46 +309,88 @@ export async function syncUserProfile(user: FirebaseUser, additionalData: Partia
       const snap = await getDoc(userRef);
 
       if (!snap.exists()) {
+        if (!user.emailVerified) {
+          return fallback;
+        }
         await setDoc(userRef, fallback);
         await syncCampusPeerDirectory(user.uid, fallback);
         return fallback;
-      } else {
-        const existing = snap.data();
-        if (existing.college === 'Stanford University' && !existing.country && !additionalData.school) {
-          existing.college = '';
-          existing.school = '';
-        }
-        if (additionalData && (additionalData.school || additionalData.country)) {
-          const cleanedDoc = {
-            uid: user.uid,
-            email: existing.email || user.email || '',
-            displayName: existing.displayName || user.displayName || 'Campus Student',
-            username: existing.username || fallback.username,
-            avatar: existing.avatar || fallback.avatar,
-            school: additionalData.school || existing.school || '',
-            college: additionalData.school || additionalData.college || existing.college || '',
-            country: additionalData.country || existing.country || '',
-            state: additionalData.state || existing.state || '',
-            currencyCode: additionalData.currencyCode || existing.currencyCode || 'USD',
-            currencySymbol: additionalData.currencySymbol || existing.currencySymbol || '$',
-            major: additionalData.major || existing.major || '',
-            graduationYear: existing.graduationYear || '2026',
-            karma: typeof existing.karma === 'number' ? existing.karma : 50,
-            badges: Array.isArray(existing.badges) ? existing.badges.slice(0, 10) : ['Verified Student'],
-            verifiedStudent: true,
-            createdAt: existing.createdAt || new Date().toISOString(),
-            updatedAt: new Date().toISOString(),
-          };
-          await setDoc(userRef, cleanedDoc);
-          await syncCampusPeerDirectory(user.uid, cleanedDoc);
-          return cleanedDoc;
-        }
-        await syncCampusPeerDirectory(user.uid, existing);
-        return existing;
       }
+
+      const existing = snap.data() as Record<string, any>;
+      if (existing.college === 'Stanford University' && !existing.country && !additionalData.school) {
+        existing.college = '';
+        existing.school = '';
+      }
+
+      const needsSchemaRewrite =
+        existing.uid !== user.uid ||
+        typeof existing.email !== 'string' ||
+        typeof existing.displayName !== 'string' ||
+        !existing.displayName.length ||
+        hasUnknownKeys(existing, ALLOWED_USER_PROFILE_KEYS);
+
+      const resolvedProfile = {
+        uid: user.uid,
+        email: clampStr(existing.email || user.email, 200),
+        displayName: clampStr(existing.displayName || user.displayName, 120, 'Campus Student') || 'Campus Student',
+        username: clampStr(existing.username, 100, fallback.username) || fallback.username,
+        avatar: clampStr(existing.avatar, 1000, fallback.avatar) || fallback.avatar,
+        school: clampStr(additionalData.school || existing.school, 200),
+        college: clampStr(additionalData.school || additionalData.college || existing.college, 200),
+        country: clampStr(additionalData.country || existing.country, 100),
+        state: clampStr(additionalData.state || existing.state, 100),
+        currencyCode: clampStr(additionalData.currencyCode || existing.currencyCode, 10, 'USD') || 'USD',
+        currencySymbol: clampStr(additionalData.currencySymbol || existing.currencySymbol, 10, '$') || '$',
+        major: clampStr(additionalData.major || existing.major, 120),
+        graduationYear: clampStr(additionalData.graduationYear || existing.graduationYear, 10, '2026') || '2026',
+        karma: typeof existing.karma === 'number' ? Math.max(0, Math.min(100000, existing.karma)) : 50,
+        badges: Array.isArray(existing.badges) ? existing.badges.slice(0, 10) : ['Verified Student'],
+        verifiedStudent: true,
+        createdAt: clampStr(existing.createdAt, 50, fallback.createdAt) || fallback.createdAt,
+        updatedAt: new Date().toISOString().slice(0, 50),
+      };
+
+      if (!user.emailVerified) {
+        return resolvedProfile;
+      }
+
+      if (needsSchemaRewrite) {
+        const cleanDoc = {
+          ...resolvedProfile,
+          karma: Math.min(50, resolvedProfile.karma),
+        };
+        await deleteDoc(userRef);
+        await setDoc(userRef, cleanDoc);
+        await syncCampusPeerDirectory(user.uid, cleanDoc);
+        return cleanDoc;
+      }
+
+      const mutablePatch: Record<string, any> = {};
+      const mutableKeys = [
+        'displayName', 'username', 'avatar', 'college', 'school',
+        'country', 'state', 'currencyCode', 'currencySymbol',
+        'major', 'graduationYear',
+      ] as const;
+
+      for (const key of mutableKeys) {
+        if (resolvedProfile[key] !== existing[key]) {
+          mutablePatch[key] = resolvedProfile[key];
+        }
+      }
+
+      if (Object.keys(mutablePatch).length > 0) {
+        mutablePatch.updatedAt = resolvedProfile.updatedAt;
+        await updateDoc(userRef, mutablePatch);
+        await syncCampusPeerDirectory(user.uid, resolvedProfile);
+        return resolvedProfile;
+      }
+
+      await syncCampusPeerDirectory(user.uid, resolvedProfile);
+      return existing;
     } catch (err) {
-      // Log diagnostic info without discarding the user's active Google Auth session
-      console.error('Firestore profile sync failed, using verified Google session:', err);
+      // Log warning without discarding the user's active Google Auth session
+      console.warn('Firestore profile sync skipped cleanly, using verified Google session:', err);
       return fallback;
     } finally {
       inFlightSync.delete(user.uid);
@@ -297,30 +403,52 @@ export async function syncUserProfile(user: FirebaseUser, additionalData: Partia
 
 // Update specific fields on user profile in Firestore
 export async function updateUserFirestoreProfile(uid: string, profileData: Partial<StudentProfile>) {
-  if (!uid) return;
+  if (!uid || !auth.currentUser || auth.currentUser.uid !== uid || !auth.currentUser.emailVerified) {
+    return;
+  }
   const userRef = doc(db, 'users', uid);
   try {
+    const snap = await getDoc(userRef);
     const allowedUpdate: Record<string, any> = {
-      updatedAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString().slice(0, 50),
     };
-    if (profileData.name) allowedUpdate.displayName = profileData.name;
-    if (profileData.username) allowedUpdate.username = profileData.username;
-    if (profileData.avatar) allowedUpdate.avatar = profileData.avatar;
-    if (profileData.college !== undefined) allowedUpdate.college = profileData.college;
-    if (profileData.school !== undefined) allowedUpdate.school = profileData.school;
-    if (profileData.country !== undefined) allowedUpdate.country = profileData.country;
-    if (profileData.state !== undefined) allowedUpdate.state = profileData.state;
-    if (profileData.currencyCode !== undefined) allowedUpdate.currencyCode = profileData.currencyCode;
-    if (profileData.currencySymbol !== undefined) allowedUpdate.currencySymbol = profileData.currencySymbol;
-    if (profileData.major !== undefined) allowedUpdate.major = profileData.major;
-    if (profileData.graduationYear !== undefined) allowedUpdate.graduationYear = profileData.graduationYear;
+    if (profileData.name) allowedUpdate.displayName = clampStr(profileData.name, 120, 'Campus Student') || 'Campus Student';
+    if (profileData.username) allowedUpdate.username = clampStr(profileData.username, 100, 'student') || 'student';
+    if (profileData.avatar) allowedUpdate.avatar = clampStr(profileData.avatar, 1000, DEFAULT_AVATAR) || DEFAULT_AVATAR;
+    if (profileData.college !== undefined) allowedUpdate.college = clampStr(profileData.college, 200);
+    if (profileData.school !== undefined) allowedUpdate.school = clampStr(profileData.school, 200);
+    if (profileData.country !== undefined) allowedUpdate.country = clampStr(profileData.country, 100);
+    if (profileData.state !== undefined) allowedUpdate.state = clampStr(profileData.state, 100);
+    if (profileData.currencyCode !== undefined) allowedUpdate.currencyCode = clampStr(profileData.currencyCode, 10);
+    if (profileData.currencySymbol !== undefined) allowedUpdate.currencySymbol = clampStr(profileData.currencySymbol, 10);
+    if (profileData.major !== undefined) allowedUpdate.major = clampStr(profileData.major, 120);
+    if (profileData.graduationYear !== undefined) allowedUpdate.graduationYear = clampStr(profileData.graduationYear, 10);
 
-    await setDoc(userRef, allowedUpdate, { merge: true });
+    if (!snap.exists()) {
+      const created = buildFallbackProfile(auth.currentUser, profileData);
+      await setDoc(userRef, created);
+      await syncCampusPeerDirectory(uid, created);
+      return;
+    }
+
+    const existing = snap.data() as Record<string, any>;
+    if (hasUnknownKeys(existing, ALLOWED_USER_PROFILE_KEYS) || existing.uid !== uid || typeof existing.displayName !== 'string' || !existing.displayName.length) {
+      const migrated = {
+        ...buildFallbackProfile(auth.currentUser, profileData),
+        createdAt: clampStr(existing.createdAt, 50, new Date().toISOString().slice(0, 50)),
+        karma: typeof existing.karma === 'number' ? Math.max(0, Math.min(50, existing.karma)) : 50,
+      };
+      await deleteDoc(userRef);
+      await setDoc(userRef, migrated);
+      await syncCampusPeerDirectory(uid, migrated);
+      return;
+    }
+
+    await updateDoc(userRef, allowedUpdate);
     await syncCampusPeerDirectory(uid, {
+      ...existing,
       ...allowedUpdate,
-      displayName: profileData.name || auth.currentUser?.displayName || 'Campus Student',
-      badges: profileData.badges,
-      karma: profileData.karma,
+      displayName: allowedUpdate.displayName || existing.displayName || auth.currentUser.displayName || 'Campus Student',
     });
   } catch (err) {
     handleFirestoreError(err, OperationType.UPDATE, `users/${uid}`);
@@ -346,7 +474,7 @@ export async function getRegisteredUsers(userSchool?: string): Promise<StudentPr
           id: data.uid || d.id,
           name: data.displayName || 'Campus Student',
           username: data.username || 'student',
-          avatar: data.avatar || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
+          avatar: data.avatar || DEFAULT_AVATAR,
           college: data.school || data.college || 'Campus',
           school: data.school || data.college || 'Campus',
           country: data.country || '',
@@ -363,7 +491,7 @@ export async function getRegisteredUsers(userSchool?: string): Promise<StudentPr
     });
     return users;
   } catch (err) {
-    console.error('Error fetching registered peers:', err);
+    console.warn('Error fetching registered peers:', err);
     return [];
   }
 }
@@ -437,8 +565,10 @@ export function subscribeSellerReviews(
       onUpdate(list);
     },
     (error) => {
+      if (!auth.currentUser) return;
       handleFirestoreError(error, OperationType.LIST, 'seller_reviews');
     }
   );
 }
+
 

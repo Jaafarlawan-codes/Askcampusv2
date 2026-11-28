@@ -183,11 +183,25 @@ service cloud.firestore {
         && isValidUserProfile(incoming())
         && incoming().uid == existing().uid
         && (!('createdAt' in existing()) || incoming().createdAt == existing().createdAt)
-        && incoming().diff(existing()).affectedKeys().hasOnly([
-          'displayName', 'username', 'avatar', 'college', 'school',
-          'country', 'state', 'currencyCode', 'currencySymbol',
-          'major', 'graduationYear', 'updatedAt'
-        ]);
+        && (!('karma' in existing())
+          ? (!('karma' in incoming()) || incoming().karma <= 50)
+          : incoming().karma == existing().karma)
+        && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'displayName', 'username', 'avatar', 'college', 'school',
+            'country', 'state', 'currencyCode', 'currencySymbol',
+            'major', 'graduationYear', 'updatedAt'
+          ]) ||
+          (
+            !('createdAt' in existing()) &&
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'displayName', 'username', 'avatar', 'college', 'school',
+              'country', 'state', 'currencyCode', 'currencySymbol',
+              'major', 'graduationYear', 'karma', 'badges', 'verifiedStudent',
+              'createdAt', 'updatedAt'
+            ])
+          )
+        );
       allow delete: if isOwner(userId) && isValidId(userId);
     }
 

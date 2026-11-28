@@ -318,19 +318,21 @@ export default function App() {
     localStorage.setItem('askcampus_seller_reviews', JSON.stringify(sellerReviews));
   }, [sellerReviews]);
 
-  // Load real registered colleagues and seller reputation reviews when authenticated
+  const [authUid, setAuthUid] = useState<string>('');
+
+  // Load real registered colleagues and seller reputation reviews when Firebase Auth session is active
   useEffect(() => {
-    if (!currentUser.id || !currentUser.school) {
-      setRegisteredColleagues([]);
+    if (!authUid || !currentUser.id || !currentUser.school) {
+      if (!currentUser.school) setRegisteredColleagues([]);
       return;
     }
     getRegisteredUsers(currentUser.school).then((users) => {
       setRegisteredColleagues(users);
     });
-  }, [currentUser.id, currentUser.school]);
+  }, [authUid, currentUser.id, currentUser.school]);
 
   useEffect(() => {
-    if (!currentUser.id) return;
+    if (!authUid || !currentUser.id) return;
     const unsubscribe = subscribeSellerReviews((cloudReviews) => {
       setSellerReviews((prev) => {
         const merged = new Map<string, SellerReview>();
@@ -342,12 +344,13 @@ export default function App() {
       });
     });
     return () => unsubscribe();
-  }, [currentUser.id]);
+  }, [authUid, currentUser.id]);
 
   // Resolve redirect-based Google Auth if returning from OAuth redirect, and listen to Auth state
   useEffect(() => {
     let mounted = true;
     const applyAuthenticatedUser = async (fbUser: any) => {
+      if (mounted) setAuthUid(fbUser.uid);
       const synced = await syncUserProfile(fbUser, {
         college: currentUser.college,
         school: currentUser.school,
@@ -411,6 +414,8 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
         await applyAuthenticatedUser(fbUser);
+      } else if (mounted) {
+        setAuthUid('');
       }
     });
     return () => {
