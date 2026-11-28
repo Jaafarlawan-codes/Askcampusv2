@@ -13,6 +13,10 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  memoryLocalCache,
   doc, 
   getDoc, 
   setDoc, 
@@ -24,7 +28,8 @@ import {
   query,
   where,
   limit,
-  onSnapshot
+  onSnapshot,
+  type Firestore
 } from 'firebase/firestore';
 import firebaseConfig from '../firebase-applet-config.json';
 import { StudentProfile, SellerReview } from './types';
@@ -91,13 +96,43 @@ googleProvider.setCustomParameters({
   prompt: 'select_account'
 });
 
-// Initialize Firestore
-export const db = firebaseConfig.firestoreDatabaseId
-  ? getFirestore(app, firebaseConfig.firestoreDatabaseId)
-  : getFirestore(app);
+// Initialize Firestore with auto-detected long polling (prevents 10s WebChannel hangs in iframes & campus/mobile networks)
+function createFirestoreInstance(): Firestore {
+  const dbId = firebaseConfig.firestoreDatabaseId || undefined;
+  try {
+    return initializeFirestore(
+      app,
+      {
+        experimentalAutoDetectLongPolling: true,
+        localCache: persistentLocalCache({
+          tabManager: persistentMultipleTabManager(),
+        }),
+      },
+      dbId
+    );
+  } catch {
+    try {
+      return initializeFirestore(
+        app,
+        {
+          experimentalAutoDetectLongPolling: true,
+          localCache: memoryLocalCache(),
+        },
+        dbId
+      );
+    } catch {
+      return dbId ? getFirestore(app, dbId) : getFirestore(app);
+    }
+  }
+}
 
-// Validate connection to Firestore
+export const db = createFirestoreInstance();
+
+// Validate connection to Firestore when browser is online
 async function testConnection() {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) {
+    return;
+  }
   try {
     await getDocFromServer(doc(db, 'test', 'connection'));
   } catch (error) {
