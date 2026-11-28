@@ -37,8 +37,8 @@ function buildStaticDirectoryHtml(heading: string, summary: string, activePath: 
     : activePath === '/ai-copilot'
     ? `<h2>AI Study Copilot &amp; Textbook Price Advisor</h2>
        <p>Generate structured concept breakdowns, practice questions, and fair local-currency resale appraisals for used textbooks and electronics.</p>`
-    : `<h2>Built for University Classmates Worldwide</h2>
-       <p>AskCampus connects verified students at the same university for course-tagged academic Q&amp;A, study groups, AI study assistance, and a reputation-ranked campus marketplace.</p>`;
+    : `<h2>The University Student App Built for Classmates</h2>
+       <p>AskCampus is a student web app that connects verified classmates at the same university for course-tagged academic Q&amp;A, study groups, AI study assistance, and a reputation-ranked campus marketplace.</p>`;
 
   return `<main style="font-family:'Plus Jakarta Sans',system-ui,sans-serif;max-width:960px;margin:0 auto;padding:48px 24px;color:#0f172a;line-height:1.6;">
   <header style="margin-bottom:32px;border-bottom:1px solid #e2e8f0;padding-bottom:16px;">
@@ -91,7 +91,7 @@ function seoStaticRoutesPlugin(): Plugin {
           path: '/',
           title: 'AskCampus – University Q&A, Study Groups & Campus Marketplace',
           description:
-            'Connect with verified classmates at your school. Ask academic questions, organize study groups, and buy or sell textbooks and gear in your local currency.',
+            'The university student app connecting verified classmates at your school. Ask academic questions, organize study groups, and buy or sell textbooks in your local currency.',
           heading: 'AskCampus – University Q&A, Study Groups & Campus Marketplace',
         },
         {

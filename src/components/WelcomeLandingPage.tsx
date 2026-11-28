@@ -49,7 +49,7 @@ export const WelcomeLandingPage: React.FC<WelcomeLandingPageProps> = ({
             className="flex items-center gap-2.5 shrink-0"
           >
             <img
-              src="/assets/aistudio/file_000000006df08210b3718ff8855bd0e3_7e7e3969.png"
+              src="/icon-192x192.png"
               alt="AskCampus Logo"
               className="w-8 h-8 rounded-xl shadow-md object-cover ring-1 ring-white/10"
             />
@@ -115,8 +115,8 @@ export const WelcomeLandingPage: React.FC<WelcomeLandingPageProps> = ({
         <div className="text-center max-w-2xl mx-auto mb-12">
           <p className="text-xs font-semibold text-blue-400 tracking-wide mb-3">
             {activeRoute?.activeLabel
-              ? `${activeRoute.activeLabel} · AskCampus Student Network`
-              : 'Colleague Network for University Students'}
+              ? `${activeRoute.activeLabel} · AskCampus Student App`
+              : 'University Student App & Colleague Network'}
           </p>
 
           <h1 className="text-3xl sm:text-5xl font-extrabold text-white tracking-tight leading-[1.12] mb-5 text-balance">

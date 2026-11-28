@@ -1,0 +1,23 @@
+{
+  "name": "AskCampus",
+  "short_name": "AskCampus",
+  "description": "University student app for academic Q&A, campus study groups, AI study copilot, and local-currency textbook marketplace.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#020617",
+  "theme_color": "#020617",
+  "icons": [
+    {
+      "src": "/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

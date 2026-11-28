@@ -159,7 +159,7 @@ export function resolveRouteFromPath(pathname: string): ParsedAppRoute {
     return {
       tab: 'questions',
       seoTitle: 'AskCampus – University Q&A, Study Groups & Campus Marketplace',
-      seoDescription: 'Connect with verified classmates at your school. Ask course questions, organize study groups, and buy or sell textbooks in your local currency.',
+      seoDescription: 'The university student app connecting verified classmates at your school. Ask academic questions, organize study groups, and buy or sell textbooks in your local currency.',
       canonicalPath: '/',
     };
   }
